@@ -3,10 +3,6 @@ library(bslib)
 library(bsicons)
 library(shinythemes)
 
-
-
-
-
 # Define UI
 page_navbar(
   # Home Page ----
