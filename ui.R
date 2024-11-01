@@ -1,7 +1,10 @@
 library(shiny)
+library(tidyverse)
+library(rlang)
 library(bslib)
 library(bsicons)
 library(shinythemes)
+library(scales)
 
 # Define UI
 page_navbar(
@@ -13,14 +16,14 @@ page_navbar(
       accordion_panel(title = 'Updates', icon = bs_icon('bell')),
       accordion_panel(title = 'Info', icon = bs_icon('info-square'))
     ),
-    tableOutput('tableA')
   ),
   # Team Pitching Page ----
   nav_panel("Team Pitching", "Team Pitching Content"),
   # Team Hitting Page ----
   nav_panel("Team Hitting", "Team Hitting Content"),
   # Pitching Page ----
-  nav_panel("Pitching", layout_sidebar(
+  nav_panel("Pitching",
+    layout_sidebar(
     sidebar = sidebar(
       width = 250,
       open = 'open',
@@ -30,7 +33,12 @@ page_navbar(
         column(6, checkboxGroupInput("strike", "Strikes", c('b')))
       )),
     ),
-  ), ),
+    selectInput('slicer', 'Slicer', c('TaggedPitchType', 'BatterSide', 'Count')),
+    tableOutput('tableA')
+  ), 
+        
+  
+  ),
   # Hitting Page ----
   nav_panel("Hitting", "Page C content"),
   # Game Reports Page ----
