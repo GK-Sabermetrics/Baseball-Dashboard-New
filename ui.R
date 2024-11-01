@@ -1,20 +1,13 @@
-#
-# This is the user-interface definition of a Shiny web application. You can
-# run the application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    https://shiny.posit.co/
-#
-
 library(shiny)
 library(bslib)
 library(bsicons)
 library(shinythemes)
 
-# Define UI for application that draws a histogram
 
 
+
+
+# Define UI
 page_navbar(
   # Home Page ----
   nav_panel(
@@ -23,7 +16,8 @@ page_navbar(
       open = FALSE,
       accordion_panel(title = 'Updates', icon = bs_icon('bell')),
       accordion_panel(title = 'Info', icon = bs_icon('info-square'))
-    )
+    ),
+    tableOutput('tableA')
   ),
   # Team Pitching Page ----
   nav_panel("Team Pitching", "Team Pitching Content"),
@@ -37,7 +31,7 @@ page_navbar(
       title = 'Filters',
       div(fluidRow(
         column(6, checkboxGroupInput("ball", "Balls", c('a'))),
-        column(6, checkboxGroupInput("strike", "Balls", c('b')))
+        column(6, checkboxGroupInput("strike", "Strikes", c('b')))
       )),
     ),
   ), ),
