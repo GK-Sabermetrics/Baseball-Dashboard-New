@@ -28,11 +28,18 @@ game$Pitch[grepl("ChangeUp", game$Pitch)] = "CH"
 game$Pitch[grepl("Slider", game$Pitch)] = "SL"
 game$Pitch[grepl("Curveball", game$Pitch)] = "CB"
 
+PitchCallChoices = list(
+  'Ball' = 'BallCalled',
+  'KC' = 'StrikeCalled',
+  'KS' = 'StrikeSwinging'
+)
 
-cols = c('Fastball' = '#d22d49', 'TwoSeamFastBall' = '#93afd4', 'ChangeUp' = '#1dbe3a', 
-         'Slider' = '#c3bd0e', 'Curveball' = '#00d1ed', 'Cutter' = '#933f2c', 
-         'Sinker' = '#de6a04', 'Splitter' = '#DDB33A', 'Four-Seam' = '#d22d49', 'KnuckleBall' = '#854cb5')
 
+
+
+pcolors = c('#d22d49','#93afd4', '#1dbe3a', '#c3bd0e', '#00d1ed', '#933f2c', '#de6a04', '#ddb33a', '#854cb5') 
+
+pcolors = setNames(pcolors, c('FB', '2SFB', 'CH', 'SL', 'CB', 'CU', 'SI', 'SP', 'KC'))
 
 # Define server logic required to draw a histogram
 function(input, output, session) {
@@ -57,7 +64,9 @@ function(input, output, session) {
       filter(PitcherTeam == "MER_BEA") %>% 
       filter(
         if (input$pitcher != "all") Pitcher == input$pitcher else TRUE,
-        if (is.null(input$ball)) TRUE else Balls %in% input$ball
+        if (is.null(input$ball)) TRUE else Balls %in% input$ball,
+        if (is.null(input$strike)) TRUE else Strikes %in% input$strike,
+        if (is.null(input$pcall)) TRUE else PitchCall %in% input$pcall,
         )
   })
   
@@ -73,9 +82,6 @@ function(input, output, session) {
     # Apply conditional formatting
     condformat(table) %>% 
       rule_fill_gradient(Pitches, low = "lightblue", high = "blue") %>% theme_htmlTable(rnames = FALSE)
-    
-    
-    
   })
   
   output$PitcherMetricsTable = renderTable({
@@ -101,7 +107,7 @@ function(input, output, session) {
         Ext = mean(Extension, na.rm = T)
         
       )
-  }, bordered = TRUE)
+  }, striped = TRUE, bordered = TRUE)
   
   
   output$PitcherSlicerTable = renderTable({
@@ -128,16 +134,27 @@ function(input, output, session) {
 
   updateSelectInput(session, 'pitcher', choices = c('all', unique(game$Pitcher)))
   
+  updateCheckboxGroupInput(session, 'pcall', choices = c(PitchCallChoices))
   
   output$PitchMovementPlot = renderPlotly({
     
-    fig = plot_ly(PitchingDF()) %>% 
+    fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors) %>% 
       add_trace(x = ~HorzBreak, y = ~InducedVertBreak, type = 'scatter', mode = 'markers',
-                marker = list(size = 6, color = ~cols[TaggedPitchType]))
+                marker = list(size = 6))
     config(fig, displayModeBar = F) %>% 
       layout(
         xaxis = list(range = c(-30,30), showgrid = F),
-        yaxis = list(range = c(-30,30), showgrid = F)
+        yaxis = list(range = c(-30,30), showgrid = F),
+        title = "Pitch Movement",
+        showlegend = F,
+        legend = list(orientation ='h', 
+                      x = 0, 
+                      y = -200, 
+                      xanchor = 'left',
+                      yanchor = 'top',
+                      itemwidth = -1,
+                      traceorder = 'normal')
+        #margin = list(b = 100)  
       )
   })
   
@@ -150,15 +167,89 @@ function(input, output, session) {
       layout(
         xaxis = list(range = c(-3,3), showgrid = F, zeroline = F),
         yaxis = list(range = c(-0.5,5), showgrid = F, zeroline = F),
+        title = "Strike Zone",
         showlegend = F,
         shapes = list(
-          type = "rect",
-          x0 = -0.708,
-          x1 = 0.708,
-          y0 = 1.5,
-          y1 = 3.5
+          list(
+          type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5
+          ),
+          list(
+          type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'below',
+          line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'below',
+          line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',
+            x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          )
         )
       )
   })
   
+  output$PitcherReleasePlot = renderPlotly({
+    fig = plot_ly(PitchingDF()) %>% 
+      add_trace(x = ~RelSide, y = ~RelHeight, color = ~Pitch, colors = ~pcolors, type = 'scatter', mode = 'markers', 
+                marker = list(size = 6)) 
+      config(fig, displayModeBar = F) %>% 
+      layout(
+        xaxis = list(range = c(-5,5)),
+        yaxis = list(range = c(4, 7)),
+        title = "Pitch Release Points",
+        showlegend = F,
+        shapes = list(
+          type = 'line',
+          x0 = -5,
+          x1 = 5,
+          y0 = 5,
+          y1 = 5,
+          layer = 'below'
+        )
+      )
+  })
+ 
+  
+  output$PitcherHeatmap = renderPlotly({
+    
+    plot_ly(PitchingDF(), x = ~PlateLocSide, y = ~PlateLocHeight) %>% 
+      add_histogram2d(nbinsx = 25, nbinsy = 25, histfunc = 'count', histnorm = 'density', colorscale = 'hot') %>% 
+      config(fig, displayModeBar = F) %>% 
+      layout(
+        xaxis = list(range = c(-3,3), showgrid = F, zeroline = F),
+        yaxis = list(range = c(0,5), showgrid = F, zeroline = F),
+        title = "Strike Zone",
+        showlegend = F,
+        shapes = list(
+          list(
+            type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5,
+            line = list(color = 'white', width = 5)
+          ),
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'above',
+            line = list(dash = 'dash', color = 'white', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'above',
+            line = list(dash = 'dash', color = 'white', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'above',
+            line = list(dash = 'dash', color = 'white', width = 3)
+          ),
+          list(
+            type = 'line',
+            x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'above',
+            line = list(dash = 'dash', color = 'white', width = 3)
+          )
+        )
+      )
+  })
+   
 }

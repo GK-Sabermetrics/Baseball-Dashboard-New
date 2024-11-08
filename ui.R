@@ -22,8 +22,10 @@ page_navbar(
 #      accordion_panel(title = 'Info', icon = bs_icon('info-square'))
 #    ),
 #  ),
-#  # Team Pitching Page ----
-#  nav_panel("Team Pitching", "Team Pitching Content"),
+  # Team Pitching Page ----
+#  nav_panel("Team Pitching", "Team Pitching Content",
+#            condformatOutput('PitcherStandingsTable'),
+#            ),
 #  # Team Hitting Page ----
 #  nav_panel("Team Hitting", "Team Hitting Content"),
   # Pitching Page ----
@@ -37,21 +39,26 @@ page_navbar(
           selectInput('pitcher', 'Pitcher', c("all"))
         ),
         fluidRow(
-        column(6, checkboxGroupInput("ball", "Balls", c('0','1','2','3'))),
-        column(6, checkboxGroupInput("strike", "Strikes", c('b')))
+        column(4, checkboxGroupInput("ball", "Balls", c('0','1','2','3'))),
+        column(4, checkboxGroupInput("strike", "Strikes", c('0','1','2'))),
+        column(4, checkboxGroupInput("outs", "Outs", c('0','1','2'))),
       ),
+        fluidRow(
+          column(4, checkboxGroupInput('pcall', 'Pitch Call', c(0)))
+        )
     ),
     navset_tab(
-      nav_panel("Pitcher Table",
+      nav_panel("Pitch Metrics",
                 page_fillable(
-                  layout_columns( col_widths = 4,
-                    #condformatOutput('PitcherStandingsTable'),
-                    plotlyOutput('PitchMovementPlot'),
-                    plotlyOutput('StrikeZonePlot'),
-                  ),
                   layout_columns(
                     tableOutput("PitcherMetricsTable") 
-                  )
+                  ),
+                  layout_columns( col_widths = 4,
+                    plotlyOutput('PitchMovementPlot'),
+                    plotlyOutput('StrikeZonePlot'),
+                    plotlyOutput('PitcherReleasePlot')
+                  ),
+                  
                 )
                   
                 
@@ -64,7 +71,14 @@ page_navbar(
     fluidRow(
       column(width = 12, tableOutput('PitcherSlicerTable'))
     ),
-    ), # NavTab Pitcher Table
+    ), # NavTab Pitcher Slicing
+      nav_panel("Heat Map",
+                tags$h1("Strikezone Heatmap"),
+                layout_columns(col_widths = 6,
+                               plotlyOutput('PitcherHeatmap', height = '500px', width = '700px')
+                               )
+                
+                )
       
   ),
     )

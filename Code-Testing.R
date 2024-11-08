@@ -87,4 +87,49 @@ plot_ly(testData, type = 'scatter', mode = 'markers', x = ~PlateLocSide, y = ~Pl
     )
   )
 
+plot_ly(data, x = ~PlateLocSide, y = ~PlateLocHeight, type = 'heatmap')
+
+
+
+fig <- plot_ly(data, x = ~PlateLocSide, y = ~PlateLocHeight)
+fig2 <- subplot(
+  fig %>% add_markers(alpha = 0.2),
+  fig %>% add_histogram2d()
+)
+
+fig2
+
+
+plot_ly(data, x = ~PlateLocSide, y = ~PlateLocHeight) %>% 
+  add_histogram2d(nbinsx = 25, nbinsy = 25, histfunc = 'count', histnorm = 'density', colorscale = 'hot') %>% 
+config(fig, displayModeBar = F) %>% 
+  layout(
+    xaxis = list(range = c(-3,3), showgrid = F, zeroline = F),
+    yaxis = list(range = c(0,5), showgrid = F, zeroline = F),
+    title = "Strike Zone",
+    showlegend = F,
+    shapes = list(
+      list(
+        type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5,
+        line = list(color = 'white', width = 5)
+      ),
+      list(
+        type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'above',
+        line = list(dash = 'dash', color = 'white', width = 3)
+      ),
+      list(
+        type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'above',
+        line = list(dash = 'dash', color = 'white', width = 3)
+      ),
+      list(
+        type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'above',
+        line = list(dash = 'dash', color = 'white', width = 3)
+      ),
+      list(
+        type = 'line',
+        x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'above',
+        line = list(dash = 'dash', color = 'white', width = 3)
+      )
+    )
+  )
 
