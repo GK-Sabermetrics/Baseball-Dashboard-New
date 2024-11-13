@@ -12,27 +12,43 @@ library(kableExtra)
 
 
 #### Pre Load Data ####
-game = read.csv("Data/20241023-MercerUniversity-Private-1_unverified.csv")
+data = read.csv("Data/Fall Scrimmage Data copy.csv")
 
 #### Data Manipulation ####
 # Add Pitch Column and Count column 
 game =
-  game %>% mutate(
+  data %>% mutate(
     Count = paste(Balls, Strikes, sep = "-"), .after = "Outs",
-    Pitch = TaggedPitchType
+    Pitch = TaggedPitchType,
+    Pitch = recode(Pitch, Fastball = "FB", TwoSeamFastBall = "2SFB", Sinker = 'SI', 
+                   Cutter = 'CT', Splitter = 'SP', ChangeUp = 'CH', Slider = 'SL',
+                   Curveball = 'CB', KnuckleBall = 'KC'),
+    PitchCall = recode(PitchCall, BallCalled = 'Ball', BallinDirt = 'Ball',
+                       FoulBallNotFieldable = 'Foul', FoulBallFieldable = 'Foul'),
+    Top.Bottom = recode(Top.Bottom, Top = "T", Bottom = "B"),
+    Inn = paste(Top.Bottom, Inning, sep = " ")
+  ) %>% 
+  rename(
+    PAOutcome = KorBB,
+    PitchType = TaggedPitchType,
+    HitType = TaggedHitType,
+    Velo = RelSpeed,
+    Spin = SpinRate,
+    IVB = InducedVertBreak,
+    HB = HorzBreak
   )
 
-game$Pitch[grepl("Fastball", game$Pitch)] = "FB"
-game$Pitch[grepl("TwoSeamFastBall", game$Pitch)] = "2SFB"
-game$Pitch[grepl("Sinker", game$Pitch)] = "SI"
-game$Pitch[grepl("Cutter", game$Pitch)] = "CU"
-game$Pitch[grepl("Splitter", game$Pitch)] = "SP"
-game$Pitch[grepl("ChangeUp", game$Pitch)] = "CH"
-game$Pitch[grepl("Slider", game$Pitch)] = "SL"
-game$Pitch[grepl("Curveball", game$Pitch)] = "CB"
-game$PitchCall[grepl("BallCalled", game$PitchCall)] = 'Ball'
-game$PitchCall[grepl("BallinDirt", game$PitchCall)] = 'Ball'
-game$PitchCall[grepl("FoulBallNotFieldable", game$PitchCall)] = 'Foul'
+#game$Pitch[grepl("Fastball", game$Pitch)] = "FB"
+#game$Pitch[grepl("TwoSeamFastBall", game$Pitch)] = "2SFB"
+#game$Pitch[grepl("Sinker", game$Pitch)] = "SI"
+#game$Pitch[grepl("Cutter", game$Pitch)] = "CU"
+#game$Pitch[grepl("Splitter", game$Pitch)] = "SP"
+#game$Pitch[grepl("ChangeUp", game$Pitch)] = "CH"
+#game$Pitch[grepl("Slider", game$Pitch)] = "SL"
+#game$Pitch[grepl("Curveball", game$Pitch)] = "CB"
+#game$PitchCall[grepl("BallCalled", game$PitchCall)] = 'Ball'
+#game$PitchCall[grepl("BallinDirt", game$PitchCall)] = 'Ball'
+#game$PitchCall[grepl("FoulBallNotFieldable", game$PitchCall)] = 'Foul'
 
 
 PitchCallChoices = list(
@@ -44,7 +60,7 @@ PitchCallChoices = list(
 )
 
 PitchChoices = list(
-  'FB','2SFB','SI','CU','SP','CH','SL','CB'
+  'FB','2SFB','SI','CT','SP','CH','SL','CB', 'KC'
 )
 
 HitChoices = list(
@@ -57,7 +73,7 @@ HitChoices = list(
 
 pcolors = c('#d22d49','#93afd4', '#1dbe3a', '#c3bd0e', '#00d1ed', '#933f2c', '#de6a04', '#ddb33a', '#854cb5') 
 
-pcolors = setNames(pcolors, c('FB', '2SFB', 'CH', 'SL', 'CB', 'CU', 'SI', 'SP', 'KC'))
+pcolors = setNames(pcolors, c('FB', '2SFB', 'CH', 'SL', 'CB', 'CT', 'SI', 'SP', 'KC'))
 
 #### End Data Manipulation ####
 
@@ -93,8 +109,13 @@ function(input, output, session) {
         if (is.null(input$pcall)) TRUE else PitchCall %in% input$pcall,
         if (is.null(input$pitch)) TRUE else Pitch %in% input$pitch,
         if (is.null(input$batterhand)) TRUE else BatterSide %in% input$batterhand,
-        if (is.null(input$hittype)) TRUE else TaggedHitType %in% input$hittype,
+        if (is.null(input$hittype)) TRUE else HitType %in% input$hittype,
         )
+  })
+  
+  PitcherDF = reactive({
+    game %>%
+      filter(if (input$pitcher != "all") Pitcher == input$pitcher else TRUE)
   })
   
   # Pitcher Standings ----
@@ -112,7 +133,7 @@ function(input, output, session) {
       rule_fill_gradient(Pitches, low = "lightblue", high = "blue") %>% theme_htmlTable(rnames = FALSE)
   })
   
-  # Pitcher Metrics ----
+  # Pitch Metrics ----
 #  output$PitcherMetricsTable = renderTable({
 #    
 #    PitchingDF() %>% 
@@ -140,7 +161,7 @@ function(input, output, session) {
   
   output$PitcherMetricsTable = renderUI({
     
-    pitch_order <- c("FB", "2SFB", "SI", "CU", "CH", "SL", "CB")
+    pitch_order <- c("FB", "2SFB", "SI", "CT", "SP", "CH", "SL", "CB","KC")
     
     tableA = 
     PitchingDF() %>% 
@@ -148,15 +169,15 @@ function(input, output, session) {
       summarise(
         "#" = n(),
         Usage = percent(n()/length(.$Pitch)),#3
-        Max = floor(max(RelSpeed, na.rm = TRUE)) %>% as.integer(),
-        Avg = floor(mean(RelSpeed, na.rm = TRUE)) %>% as.integer(),
-        Spin = mean(SpinRate, na.rm = T) %>% as.integer(),
+        Max = floor(max(Velo, na.rm = TRUE)) %>% as.integer(),
+        Avg = floor(mean(Velo, na.rm = TRUE)) %>% as.integer(),
+        Spin = mean(Spin, na.rm = T) %>% as.integer(),
         Tilt = Tilt %>% as.POSIXct(format = '%H:%M', tz = 'UTC') %>%
           as.numeric() %>% mean(na.rm = T) %>%
           as.POSIXct(origin = '1970-01-01', tz = 'UTC') %>%
           format(format = "%k:%M", tz = 'UTC'),
-        HB = mean(HorzBreak, na.rm = T) %>% round(2),
-        IVB = mean(InducedVertBreak, na.rm = T) %>% round(2),
+        HB = mean(HB, na.rm = T) %>% round(2),
+        IVB = mean(IVB, na.rm = T) %>% round(2),
         VAA = mean(VertApprAngle, na.rm = T) %>% round(2),
         HAA = mean(HorzApprAngle, na.rm = T) %>% round(2),
         Ext = mean(Extension, na.rm = T) %>% round(2)
@@ -172,14 +193,53 @@ function(input, output, session) {
         tableA$Pitch == "FB" ~ '#d22d49',
         tableA$Pitch == "2SFB" ~ '#93afd4',
         tableA$Pitch == "SI" ~ '#de6a04',
-        tableA$Pitch == "CU" ~ '#933f2c',
+        tableA$Pitch == "CT" ~ '#933f2c',
         tableA$Pitch == "CH" ~ '#1dbe3a',
         tableA$Pitch == "SL" ~ '#c3bd0e',
-        tableA$Pitch == "CB" ~ '#00d1ed'
+        tableA$Pitch == "CB" ~ '#00d1ed',
+        tableA$Pitch == "KC" ~ '#854cb5'
       )) %>% 
       row_spec(row = 0, color = "white", background = "orange") %>% HTML()
   })
   
+  #### Pitch Stats ####
+  output$PitcherStatsTable = renderUI({
+    
+    pitch_order <- c("FB", "2SFB", "SI", "CT", "SP", "CH", "SL", "CB","KC")
+    
+    tableA = PitchingDF() %>% 
+      group_by(Pitch) %>% 
+      summarise(
+        '#' = n(),
+        CStrk = length(which(PitchCall == 'StrikeCalled')),
+        Swing = length(which(!PitchCall %in% c('StrikeCalled', 'HitByPitch', 'Ball'))),
+        Whiff = length(which(PitchCall == 'StrikeSwinging')),
+        'Strk%' = percent(length(which(!PitchCall %in% c('Ball', 'HitByPitch', 'InPlay')))/n()),
+        'Whiff%' = percent(Whiff/Swing),
+        'CSW%' = percent((CStrk+Whiff)/n()),
+        AvgEV = mean(ExitSpeed, na.rm = TRUE) %>% round(),
+        'Hard%' = percent(length(which(ExitSpeed > 90))/n()),
+        FP = length(which(Count == '0-0')),
+        'FPStrk%' = percent(length(which(Count == '0-0' & !PitchCall %in% c('Ball', 'HitByPitch', 'InPlay')))/FP)
+      ) %>% 
+      mutate(Pitch = factor(Pitch, levels = pitch_order)) %>%
+      arrange(Pitch)
+    
+    tableA %>% 
+      kable(format = 'html', align = 'c') %>% kable_styling(font_size = 15) %>% 
+      kable_styling(bootstrap_options = 'bordered') %>% 
+      column_spec(1, border_left = TRUE, bold = T, color = 'white',background = case_when(
+        tableA$Pitch == "FB" ~ '#d22d49',
+        tableA$Pitch == "2SFB" ~ '#93afd4',
+        tableA$Pitch == "SI" ~ '#de6a04',
+        tableA$Pitch == "CT" ~ '#933f2c',
+        tableA$Pitch == "CH" ~ '#1dbe3a',
+        tableA$Pitch == "SL" ~ '#c3bd0e',
+        tableA$Pitch == "CB" ~ '#00d1ed',
+        tableA$Pitch == "KC" ~ '#854cb5'
+      )) %>% 
+      row_spec(row = 0, color = "white", background = "orange") %>% HTML()
+  })
   
   # Pitcher Slicer ----
   output$PitcherSlicerTable = renderTable({
@@ -200,8 +260,8 @@ function(input, output, session) {
         'Ball%' = percent(Balls/Total),#7
         Swings = length(which(PitchCall %in% c('StrikeSwinging','InPlay', 'FoulBallNotFieldable'))),#8
         'Whiff%' = percent(length(which((PitchCall == "StrikeSwinging")))/Swings),#9
-        K = length(which(KorBB == 'Strikeout')),
-        Walks = length(which(KorBB == "Walk")),
+        K = length(which(PAOutcome == 'Strikeout')),
+        Walks = length(which(PAOutcome == "Walk")),
         HBP = length(which(PitchCall == 'HitByPitch')),
         SF = length(which(PlayResult == 'Sacrifice')),
         H = length(which(PitchCall == 'InPlay' & PlayResult != 'Out')), #10
@@ -216,7 +276,7 @@ function(input, output, session) {
     
 
   # Update Inputs ----
-  updateSelectInput(session, 'pitcher', choices = c('all', unique(game$Pitcher)))
+  updateSelectInput(session, 'pitcher', choices = c(unique(game$Pitcher)))
   
   updateCheckboxGroupInput(session, 'pcall', choices = c(PitchCallChoices))
   
@@ -226,12 +286,12 @@ function(input, output, session) {
   
   # End Update Inputs
   
-  # Pitcher Movmement Plot ----
-  output$PitchMovementPlot = renderPlotly({
+  # Movement Plot ----
+  output$PitchMovementPlotMain = renderPlotly({
     
     fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors) %>% 
-      add_trace(x = ~HorzBreak, y = ~InducedVertBreak, type = 'scatter', mode = 'markers',
-                marker = list(size = 6),
+      add_trace(x = ~HB, y = ~IVB, type = 'scatter', mode = 'markers',
+                marker = list(size = 8, line = list(color = 'black',width = 1)),
                 customdata = ~Pitch,
                 hovertemplate = "HB: %{x:.2f} <br>VB: %{y:.2f} <extra>%{customdata}</extra>"
                 #text = ~paste(Pitch,
@@ -263,28 +323,28 @@ function(input, output, session) {
       )
   })
   
-  output$PitchMovementPlotB = renderPlotly({
+  output$PitchMovementPlotSub = renderPlotly({
     
     fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors, source = 'PMB') %>% 
-      add_trace(x = ~HorzBreak, y = ~InducedVertBreak, type = 'scatter', mode = 'markers',
-                marker = list(size = 6),
+      add_trace(x = ~HB, y = ~IVB, type = 'scatter', mode = 'markers',
+                marker = list(size = 8, line = list(color = 'black',width = 1)),
                 #customdata = I(PitchingDF()[, c(~Pitch, ~SpinRate)]),
                 #hovertemplate = "HB: %{x:.2f} <br>VB: %{y:.2f} <extra>%{customdata}</extra>"
                 text = ~paste(Pitch,
-                              '<br>HB:', round(HorzBreak, 1),'in',
-                              '<br>VB:', round(InducedVertBreak, 1),'in',
-                              '<br>Spin:',round(PitchingDF()$SpinRate),'RPM',
+                              '<br>HB:', round(HB, 1),'in',
+                              '<br>VB:', round(IVB, 1),'in',
+                              '<br>Spin:',round(PitchingDF()$Spin),'RPM',
                               '<br>Ext:', round(PitchingDF()$Extension,2), 'ft'
                               #'<br>HRA:',round(PitchingDF()$HorzRelAngle, 2),'º',
                               #'<br>VRA:',round(PitchingDF()$VertRelAngle, 2),'º'
                               ),
                 hoverinfo = 'text'
       )
-    config(fig, dragmode = 'selected') %>% 
+    config(fig, displaylogo = F, modeBarButtonsToRemove = c("zoomin2d", 'zoomOut2d', 'lasso2d', 'autoscale2d', 'pan2d')) %>% 
       layout(
         xaxis = list(range = c(-30,30)),
         yaxis = list(range = c(-30,30)),
-        #title = "Pitch Movement",
+        title = "Pitch Movement",
         showlegend = F,
         legend = list(orientation ='h', 
                       x = 0, 
@@ -296,10 +356,12 @@ function(input, output, session) {
       )
   })
   
+  #### Release Angle ####
   output$PitchReleaseAngle = renderPlotly({
     
     fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors) %>% 
-      add_trace(x = ~HorzRelAngle, y = ~VertRelAngle, type = 'scatter', mode = 'markers')
+      add_trace(x = ~HorzRelAngle, y = ~VertRelAngle, type = 'scatter', mode = 'markers',
+                marker = list(size = 8, line = list(color = 'black', width = 1)))
     config(fig) %>% 
       layout(
         showlegend = F,
@@ -308,31 +370,71 @@ function(input, output, session) {
     
   })
   
+  #### Data Point Display ####
   
-  #### Pitch Movement Data ####
+  #### +Movement Data ####
   output$PitchMovementData = renderTable({
     
     d = event_data('plotly_selected', source = 'PMB')
-    d
+    
+    
+    MovementData = game %>% select(Pitcher, Pitch, HB, IVB, Count, Outs, 
+                                   PitchCall, PAOutcome, HitType, PlayResult)
+ 
+    filter(MovementData, HB %in% d[,3])
   })
   
-  
-  # Strikezone Plot ----
-  output$StrikeZonePlot = renderPlotly({
+  #### +Strike Zone Data ####
+  output$StrikeZoneData = renderTable({
+    d = event_data('plotly_selected', source = 'SZP')
     
-    fig = plot_ly(PitchingDF()) %>% 
-      add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, color = ~PitchCall, type = 'scatter', mode = 'markers'
-      )
+    
+    SZData = filter(game, PlateLocSide %in% d[,3])
+    
+    SZData %>% select(Pitcher, Pitch, HB, IVB, Count, Outs, PitchCall, PAOutcome, 
+                    HitType, PlayResult)
+    
+    
+    
+  })
+  
+  # Strike Zone Plot ----
+  
+  # +Main ----
+  output$StrikeZonePlotMain = renderPlotly({
+    
+    fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors) %>% 
+      add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
+                marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none'
+                )
+    fig = fig %>% 
     config(fig, displayModeBar = F) %>% 
       layout(
-        xaxis = list(range = c(-3,3), showgrid = F, zeroline = F),
-        yaxis = list(range = c(-0.5,5), showgrid = F, zeroline = F),
+        xaxis = list(range = c(-3,3), showgrid = T, zeroline = F, title = NA),
+        yaxis = list(range = c(-0.5,5), showgrid = T, zeroline = F, title = NA),
         title = "Strike Zone",
         showlegend = F,
         shapes = list(
           list(
-          type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5
+          type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5, layer = 'below'
           ),
+          #Draw Plate
+          list(
+            type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.15,y1 = 0.15, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = -0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+          ),
+          #End Draw Plate
           list(
           type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'below',
           line = list(dash = 'dash', color = 'grey', width = 3)
@@ -352,13 +454,73 @@ function(input, output, session) {
           )
         )
       )
+    
+    
   })
   
+  # +Sub ----
+  output$StrikeZonePlotSub = renderPlotly({
+    
+    fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors, source = 'SZP') %>% 
+      add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
+                marker = list(size = 8, line = list(color = 'black',width = 1)
+                )
+      )
+    config(fig) %>% 
+      layout(
+        xaxis = list(range = c(-3,3), showgrid = T, zeroline = F),
+        yaxis = list(range = c(-0.5,5), showgrid = T, zeroline = F),
+        title = "Strike Zone",
+        showlegend = F,
+        shapes = list(
+          list(
+            type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5, layer = 'below'
+          ),
+          #Draw Plate
+          list(
+            type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.15,y1 = 0.15, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = -0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+          ),
+          #End Draw Plate
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',
+            x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          )
+        )
+      )
+  })
+  
+  
+  
   # Release Plot ----
-  output$PitcherReleasePlot = renderPlotly({
+  output$PitcherReleasePlotMain = renderPlotly({
     fig = plot_ly(PitchingDF()) %>% 
       add_trace(x = ~RelSide, y = ~RelHeight, color = ~Pitch, colors = ~pcolors, type = 'scatter', mode = 'markers', 
-                marker = list(size = 6)) 
+                marker = list(size = 8, line = list(color = 'black', width = 1))) 
       config(fig, displayModeBar = F) %>% 
       layout(
         xaxis = list(range = c(-5,5)),
@@ -375,12 +537,54 @@ function(input, output, session) {
         )
       )
   })
+  
+  output$PitcherReleasePlotSub = renderPlotly({
+    fig = plot_ly(PitchingDF()) %>% 
+      add_trace(x = ~RelSide, y = ~RelHeight, color = ~Pitch, colors = ~pcolors, type = 'scatter', mode = 'markers', 
+                marker = list(size = 8, line = list(color = 'black', width = 1))) 
+    config(fig, displayModeBar = F) %>% 
+      layout(
+        xaxis = list(range = c(-5,5)),
+        yaxis = list(range = c(4, 7)),
+        title = "Pitch Release Points",
+        showlegend = F,
+        shapes = list(
+          type = 'line',
+          x0 = -5,
+          x1 = 5,
+          y0 = 5,
+          y1 = 5,
+          layer = 'below'
+        )
+      )
+  })
  
+  
+  #### Extension Plot ####
+  
+  output$PitcherExtensionPlot = renderPlotly({
+    
+    fig = plot_ly(PitchingDF()) %>% 
+      add_trace(x = ~Extension*12, y = ~RelHeight*12, color = ~Pitch, colors = ~pcolors,
+                marker = list(size = 8, line = list(color = 'black', width = 1)))
+    config(fig) %>% 
+      layout(
+        xaxis = list(range = c(0,90), title = 'Extension (in)'),
+        yaxis = list(range = c(0,80), title = 'Release Height (in)'),
+        showlegend = F,
+        title = 'Extension'
+      )
+  })
+  
+  
   # Heatmap ----
   output$PitcherHeatmap = renderPlotly({
     fig = 
     plot_ly(PitchingDF(), x = ~PlateLocSide, y = ~PlateLocHeight) %>% 
-      add_histogram2dcontour(nbinsx = 25, nbinsy = 25, histfunc = 'count', histnorm = 'density', colorscale = 'hot') 
+      add_histogram2dcontour(
+        #nbinsx = 25, 
+         #                    nbinsy = 25, 
+                             histfunc = 'count', histnorm = 'density', colorscale = 'hot') 
       config(fig, displayModeBar = F) %>% 
       layout(
         xaxis = list(range = c(-3,3), showgrid = F, zeroline = F),
@@ -413,16 +617,22 @@ function(input, output, session) {
       )
   })
    
-  # Pitch By Pitch Overview Table ----
+  # Pitch By Pitch ----
   output$PBPOverview = renderTable({
     
     table = 
-    game %>% 
-      select(PitchNo, Pitcher, BatterSide, Inning, Top.Bottom, Count, Outs, Pitch,
-             PitchCall, KorBB, TaggedHitType, PlayResult, RelSpeed, SpinRate, HorzBreak,
-             InducedVertBreak, ExitSpeed, Angle, Distance)
+    PitchingDF() %>% 
+      select(PitchNo, Pitcher, BatterSide, Inn, Count, Outs, Pitch,
+             PitchCall, PAOutcome, HitType, PlayResult, Velo, Spin, HB,
+             IVB, ExitSpeed, Angle, Distance)
     table
     
+  })
+  
+  #### Observe Events ####
+  
+  observeEvent(input$pitcher,{
+    updateCheckboxGroupInput(session, 'pitch', choices = PitchChoices[PitchChoices %in% unique(PitcherDF()$Pitch)])
   })
   
   

@@ -3,6 +3,34 @@ library(tidyverse)
 library(scales)
 library(htmlTable)
 
+#### Pre Load Data ####
+data = read.csv("Data/Fall Scrimmage Data copy.csv")
+
+#### Data Manipulation ####
+# Add Pitch Column and Count column 
+game =
+  data %>% mutate(
+    Count = paste(Balls, Strikes, sep = "-"), 
+    Pitch = recode(TaggedPitchType, Fastball = "FB", TwoSeamFastBall = "2SFB", Sinker = 'SI', 
+                   Cutter = 'CT', Splitter = 'SP', ChangeUp = 'CH', Slider = 'SL',
+                   Curveball = 'CB'),
+    PitchCall = recode(PitchCall, BallCalled = 'Ball', BallinDirt = 'Ball',
+                       FoulBallNotFieldable = 'Foul', ),
+    Top.Bottom = recode(Top.Bottom, Top = "T", Bottom = "B"),
+    Inn = paste(Top.Bottom, Inning, sep = " "),
+    , .after = "Outs"
+  ) %>% 
+  rename(
+    PAOutcome = KorBB,
+    PitchType = TaggedPitchType,
+    HitType = TaggedHitType,
+    Velo = RelSpeed,
+    Spin = SpinRate,
+    IVB = InducedVertBreak,
+    HB = HorzBreak
+    )
+
+
 
 data = read.csv("Data/20241023-MercerUniversity-Private-1_unverified.csv")
 
@@ -22,9 +50,8 @@ dataA$Top.Bottom[grepl("Bottom", dataA$Top.Bottom)] = "B"
 
 dataA =   
 dataA %>% mutate(
-  Count = paste(Balls, Strikes, sep = "-"),
-  Inn = paste(Top.Bottom, Inning, sep = " "),
-  .after = "Outs"
+  Count = paste(Balls, Strikes, sep = "-"), .after = 'Outs',
+  Inn = paste(Top.Bottom, Inning, sep = " "), .after = "Inning"
 )
 
 

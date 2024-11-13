@@ -56,30 +56,43 @@ page_navbar(
     navset_tab(
       nav_panel("Pitcher Overview",
           page_fillable(
-            layout_columns(
+            layout_columns(col_widths = 12,
               #tableOutput("PitcherMetricsTable")
-              htmlOutput('PitcherMetricsTable')
+              htmlOutput('PitcherMetricsTable'),
+              htmlOutput('PitcherStatsTable')
             ),
             layout_columns( col_widths = 4,
-              plotlyOutput('PitchMovementPlot'),
-              plotlyOutput('StrikeZonePlot'),
-              plotlyOutput('PitcherReleasePlot')
+              plotlyOutput('PitchMovementPlotMain'),
+              plotlyOutput('StrikeZonePlotMain'),
+              plotlyOutput('PitcherReleasePlotMain')
             ),
             ) # Page Fillable
         ), # Nav Panel Pitcher Overview
       nav_panel('Pitch by Pitch Overview',
                 tableOutput("PBPOverview")
         ),
-      nav_panel('Pitch Movement',
-                h1("Pitch Movement", align = 'center'),
+      nav_panel('Pitch Locations',
+                h1(""),
+                layout_columns(col_widths = 6,
+                               plotlyOutput('StrikeZonePlotSub', width = '700px', height = '500px')               
+                ),
+                tableOutput('StrikeZoneData')  
+      ),
+      nav_panel('Pitch Movement & Release Angle',
+                h1(""),
             layout_columns(col_widths = 6,
-                plotlyOutput('PitchMovementPlotB', height = '500px'),
+                plotlyOutput('PitchMovementPlotSub', height = '500px'),
                 plotlyOutput('PitchReleaseAngle', height = '500px')
             ),
             tableOutput('PitchMovementData')
       ),
-      nav_panel('Strike Zone'),
-      nav_panel('Release Point, Extension, Release Angle'),
+      nav_panel('Release Point & Extension',
+                h1(""),
+              layout_columns(col_widths = 6,
+                plotlyOutput('PitcherReleasePlotSub'),
+                plotlyOutput('PitcherExtensionPlot')
+              )
+                ),
       nav_panel("Pitcher Slicing",
         fluidRow(
           selectInput('slicerA', 'SlicerA', c('Pitch', 'BatterSide', 'Count')),
