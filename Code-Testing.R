@@ -17,10 +17,17 @@ dataA$TaggedPitchType[grepl("ChangeUp", dataA$TaggedPitchType)] = "CH"
 dataA$TaggedPitchType[grepl("Slider", dataA$TaggedPitchType)] = "SL"
 dataA$TaggedPitchType[grepl("Curveball", dataA$TaggedPitchType)] = "CB"
 
-dataA =
+dataA$Top.Bottom[grepl("Top", dataA$Top.Bottom)] = "T"
+dataA$Top.Bottom[grepl("Bottom", dataA$Top.Bottom)] = "B"
+
+dataA =   
 dataA %>% mutate(
-  Count = paste(Balls, Strikes, sep = "-"), .after = "Outs"
+  Count = paste(Balls, Strikes, sep = "-"),
+  Inn = paste(Top.Bottom, Inning, sep = " "),
+  .after = "Outs"
 )
+
+
 
 pt =
 dataA %>% 
@@ -132,4 +139,65 @@ config(fig, displayModeBar = F) %>%
       )
     )
   )
+
+gamevelo = 
+  dataA %>% group_by(TaggedPitchType, Inning) %>% 
+  summarise(Avg = mean(RelSpeed, na.rm = TRUE))
+
+
+plot_ly(data, x = ~HorzRelAngle, y = ~VertRelAngle, color = ~TaggedPitchType, mode = 'markers')
+
+
+game %>% mutate(
+  KorBB = 
+  case_when(
+    KorBB == "Strikeout" ~ "Strikeout",
+    KorBB == 'Walk' ~ 'Walk'
+    #KorBB == "Undefined" ~ NA
+            )
+) %>% view()
+
+test = head(game, 5)
+
+paste(test$Pitcher, 'threw a', test$TaggedPitchType, "for a", test$PitchCall,
+      ifelse(test$TaggedHitType == 'Undefined', "",paste("resulting in a",test$TaggedHitType))) %>% 
+  as.data.frame()
+
+separate(test$PitchCall, "")
+
+sapply(test$Pitcher, function(name) {
+  parts <- strsplit(name, ", ")[[1]]  # Split by comma and space
+  name = paste(parts[2], parts[1])  # Reorder to "First Last"
+  print(name)
+})
+
+cols = c('Fastball' = '#d22d49', 'TwoSeamFastBall' = '#93afd4', 'ChangeUp' = '#1dbe3a', 
+         'Slider' = '#c3bd0e', 'Curveball' = '#00d1ed', 'Cutter' = '#933f2c', 
+         'Sinker' = '#de6a04', 'Splitter' = '#DDB33A', 'Four-Seam' = '#d22d49', 'KnuckleBall' = '#854cb5')
+
+pitch_order <- c("FB", "2SFB", "SI", "CU", "CH", "SL", "CB")
+
+testtable = 
+dataA %>% 
+  group_by(TaggedPitchType) %>% 
+  summarise(Pitches = n()) %>% 
+  mutate(TaggedPitchType = factor(TaggedPitchType, levels = pitch_order)) %>%
+  arrange(TaggedPitchType)
+  
+testtable %>%  
+kable(format = 'html') %>% kable_styling(font_size = 10, position = 'center') %>% 
+  column_spec(1, border_left = TRUE, color = 'white',background = case_when(
+    testtable$TaggedPitchType == "FB" ~ '#d22d49',
+    testtable$TaggedPitchType == "2SFB" ~ '#93afd4',
+    testtable$TaggedPitchType == "SI" ~ '#de6a04',
+    testtable$TaggedPitchType == "CU" ~ '#933f2c',
+    testtable$TaggedPitchType == "CH" ~ '#1dbe3a',
+    testtable$TaggedPitchType == "SL" ~ '#c3bd0e',
+    testtable$TaggedPitchType == "CB" ~ '#00d1ed',
+    TRUE ~ 'black'
+  )) %>% 
+  row_spec(row = 0, color = "white", background = "orange")
+
+
+
 

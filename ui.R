@@ -8,6 +8,7 @@ library(condformat)
 library(htmltools)
 library(DT)
 library(plotly)
+library(kableExtra)
 
 # Define UI
 fluidPage(theme = bs_theme(version = 5, bootswatch = 'united'),
@@ -35,53 +36,70 @@ page_navbar(
       width = 250,
       open = 'open',
       title = 'Filters',
-        fluidRow(
+      fluidRow(
           selectInput('pitcher', 'Pitcher', c("all"))
         ),
+      fluidRow(
+          column(3, checkboxGroupInput("ball", "Balls", c('0','1','2','3'))),
+          column(3, checkboxGroupInput("strike", "Strikes", c('0','1','2'))),
+          column(3, checkboxGroupInput("outs", "Outs", c('0','1','2'))),
+          column(3, checkboxGroupInput('batterhand', 'BH', choiceNames = c('L','R'), choiceValues = c('Left','Right'))),
+        ),
+      fluidRow(
+          column(6, checkboxGroupInput('pcall', 'Pitch Call', c(0))),
+          column(6, checkboxGroupInput('hittype', 'Hit Type', c('0'))),
+        ),
         fluidRow(
-        column(4, checkboxGroupInput("ball", "Balls", c('0','1','2','3'))),
-        column(4, checkboxGroupInput("strike", "Strikes", c('0','1','2'))),
-        column(4, checkboxGroupInput("outs", "Outs", c('0','1','2'))),
-      ),
-        fluidRow(
-          column(4, checkboxGroupInput('pcall', 'Pitch Call', c(0)))
+          column(4, checkboxGroupInput('pitch', 'Pitch', c(0))),
         )
-    ),
+    ), # End Sidebar
     navset_tab(
-      nav_panel("Pitch Metrics",
-                page_fillable(
-                  layout_columns(
-                    tableOutput("PitcherMetricsTable") 
-                  ),
-                  layout_columns( col_widths = 4,
-                    plotlyOutput('PitchMovementPlot'),
-                    plotlyOutput('StrikeZonePlot'),
-                    plotlyOutput('PitcherReleasePlot')
-                  ),
-                  
-                )
-                  
-                
-                ),
+      nav_panel("Pitcher Overview",
+          page_fillable(
+            layout_columns(
+              #tableOutput("PitcherMetricsTable")
+              htmlOutput('PitcherMetricsTable')
+            ),
+            layout_columns( col_widths = 4,
+              plotlyOutput('PitchMovementPlot'),
+              plotlyOutput('StrikeZonePlot'),
+              plotlyOutput('PitcherReleasePlot')
+            ),
+            ) # Page Fillable
+        ), # Nav Panel Pitcher Overview
+      nav_panel('Pitch by Pitch Overview',
+                tableOutput("PBPOverview")
+        ),
+      nav_panel('Pitch Movement',
+                h1("Pitch Movement", align = 'center'),
+            layout_columns(col_widths = 6,
+                plotlyOutput('PitchMovementPlotB', height = '500px'),
+                plotlyOutput('PitchReleaseAngle', height = '500px')
+            ),
+            tableOutput('PitchMovementData')
+      ),
+      nav_panel('Strike Zone'),
+      nav_panel('Release Point, Extension, Release Angle'),
       nav_panel("Pitcher Slicing",
-    fluidRow(
-      selectInput('slicerA', 'SlicerA', c('Pitch', 'BatterSide', 'Count')),
-      selectInput('slicerB', 'SlicerB', c("None" = "", 'Pitch', 'BatterSide', 'Count'), selected = "", selectize = TRUE),
-    ),
-    fluidRow(
-      column(width = 12, tableOutput('PitcherSlicerTable'))
-    ),
+        fluidRow(
+          selectInput('slicerA', 'SlicerA', c('Pitch', 'BatterSide', 'Count')),
+          selectInput('slicerB', 'SlicerB', c("None" = "", 'Pitch', 'BatterSide', 'Count'), selected = "", selectize = TRUE),
+        ),
+          layout_columns(col_widths = 6,
+            tableOutput('PitcherSlicerTable')
+          ),
     ), # NavTab Pitcher Slicing
       nav_panel("Heat Map",
-                tags$h1("Strikezone Heatmap"),
-                layout_columns(col_widths = 6,
+                tags$h1("Strike Zone Heatmap", align = 'center'),
+                layout_columns(col_widths = 3,
+                               "",
                                plotlyOutput('PitcherHeatmap', height = '500px', width = '700px')
-                               )
-                
                 )
+                
+        ), # Nav Panel Heatmap End
       
-  ),
-    )
+  ), # Navset Tab End
+) # Page Sidebar End
         
   
   ),
