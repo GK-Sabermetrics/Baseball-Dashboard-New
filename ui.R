@@ -30,27 +30,43 @@ page_navbar(
 #  # Team Hitting Page ----
 #  nav_panel("Team Hitting", "Team Hitting Content"),
   # Pitching Page ----
-  nav_panel("Pitching",
+  nav_menu("Pitching",
+    nav_panel('Pitcher Overview',
+              layout_columns(col_widths = 6,
+              selectInput('datePitcherOverview', 'Date', c('all')),
+              selectInput('pitcherPitcherOverview', 'Pitcher', c('all'))
+              ),
+              htmlOutput('PitcherIndividualStats'),
+              h1(textOutput('PitcherNamePitcherOverview')),
+              h2("Pitch Metrics", align = 'center'),
+              htmlOutput('PitcherMetricsTablePitcherOverview'),
+              h2("Pitch Stats", align = 'center'),
+              htmlOutput('PitcherStatsTablePitcherOverview')
+              ),
+    nav_panel('Pitcher Standings',
+              htmlOutput('PitcherStandingsTable')
+              ),
+    nav_panel('Pitcher Dashboard',
     page_sidebar(
     sidebar = sidebar(
       width = 250,
       open = 'open',
       title = 'Filters',
+      selectInput('season', 'Season (Not Yet Functional)', c('all')),
+      selectInput('pitcherPitcherDashboard', 'Pitcher', c("all")),
+      selectInput('datePitcherDashboard', 'Date', c("all")),
       fluidRow(
-          selectInput('pitcher', 'Pitcher', c("all"))
+          column(3, checkboxGroupInput("ballPitcherDashboard", "Balls", c('0','1','2','3'))),
+          column(3, checkboxGroupInput("strikePitcherDashboard", "Strikes", c('0','1','2'))),
+          column(3, checkboxGroupInput("outsPitcherDashboard", "Outs", c('0','1','2'))),
+          column(3, checkboxGroupInput('batterhandPitcherDashboard', 'BH', choiceNames = c('L','R'), choiceValues = c('Left','Right'))),
         ),
       fluidRow(
-          column(3, checkboxGroupInput("ball", "Balls", c('0','1','2','3'))),
-          column(3, checkboxGroupInput("strike", "Strikes", c('0','1','2'))),
-          column(3, checkboxGroupInput("outs", "Outs", c('0','1','2'))),
-          column(3, checkboxGroupInput('batterhand', 'BH', choiceNames = c('L','R'), choiceValues = c('Left','Right'))),
-        ),
-      fluidRow(
-          column(6, checkboxGroupInput('pcall', 'Pitch Call', c(0))),
-          column(6, checkboxGroupInput('hittype', 'Hit Type', c('0'))),
+          column(6, checkboxGroupInput('pcallPitcherDashboard', 'Pitch Call', c(0))),
+          column(6, checkboxGroupInput('hittypePitcherDashboard', 'Hit Type', c('0'))),
         ),
         fluidRow(
-          column(4, checkboxGroupInput('pitch', 'Pitch', c(0))),
+          column(4, checkboxGroupInput('pitchPitcherDashboard', 'Pitch', c(0))),
         )
     ), # End Sidebar
     navset_tab(
@@ -58,8 +74,8 @@ page_navbar(
           page_fillable(
             layout_columns(col_widths = 12,
               #tableOutput("PitcherMetricsTable")
-              htmlOutput('PitcherMetricsTable'),
-              htmlOutput('PitcherStatsTable')
+              htmlOutput('PitcherMetricsTablePitcherDashboard'),
+              htmlOutput('PitcherStatsTablePitcherDashboard')
             ),
             layout_columns( col_widths = 4,
               plotlyOutput('PitchMovementPlotMain'),
@@ -110,14 +126,26 @@ page_navbar(
                 )
                 
         ), # Nav Panel Heatmap End
-      
   ), # Navset Tab End
-) # Page Sidebar End
+), # Page Sidebar End
         
-  
-  ),
+    )),
+
   # Hitting Page ----
-  nav_panel("Hitting", "Page C content"),
+  nav_menu("Hitting",
+    nav_panel('Hitter Pages'),
+    nav_panel('Hitting Dashboard',
+      page_sidebar(
+        sidebar = sidebar(
+          width = 250,
+          open = 'open'
+        ),
+        htmlOutput('BatterTable')
+      )
+    )
+            
+            
+  ),
   # Game Reports Page ----
   nav_panel("Game Reports", "game reports content"),
   # Umpire Reports Page ----

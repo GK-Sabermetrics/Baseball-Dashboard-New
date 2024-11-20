@@ -7,18 +7,22 @@ library(htmlTable)
 data = read.csv("Data/Fall Scrimmage Data copy.csv")
 
 #### Data Manipulation ####
-# Add Pitch Column and Count column 
+# Add Pitch Column and Count column
 game =
-  data %>% mutate(
-    Count = paste(Balls, Strikes, sep = "-"), 
-    Pitch = recode(TaggedPitchType, Fastball = "FB", TwoSeamFastBall = "2SFB", Sinker = 'SI', 
+  filter(data, TaggedPitchType != 'Other' & PitcherTeam == "MER_BEA") %>% 
+  mutate(
+    Count = paste(Balls, Strikes, sep = "-"), .after = "Outs",
+    Pitch = TaggedPitchType,
+    Pitch = recode(Pitch, Fastball = "FB", TwoSeamFastBall = "2SFB", Sinker = 'SI', 
                    Cutter = 'CT', Splitter = 'SP', ChangeUp = 'CH', Slider = 'SL',
-                   Curveball = 'CB'),
+                   Curveball = 'CB', KnuckleBall = 'KC'),
     PitchCall = recode(PitchCall, BallCalled = 'Ball', BallinDirt = 'Ball',
-                       FoulBallNotFieldable = 'Foul', ),
+                       FoulBallNotFieldable = 'Foul', FoulBallFieldable = 'Foul'),
     Top.Bottom = recode(Top.Bottom, Top = "T", Bottom = "B"),
     Inn = paste(Top.Bottom, Inning, sep = " "),
-    , .after = "Outs"
+    KorBB = recode(KorBB, Strikeout = 'Strikeout', Walk = 'Walk', Undefined = ""),
+    ArmRad = atan2(RelHeight, RelSide),
+    ArmDeg = ArmRad * (180/pi)
   ) %>% 
   rename(
     PAOutcome = KorBB,
@@ -28,10 +32,10 @@ game =
     Spin = SpinRate,
     IVB = InducedVertBreak,
     HB = HorzBreak
-    )
+  )
 
 
-
+#### Old Data Manipulation ####
 data = read.csv("Data/20241023-MercerUniversity-Private-1_unverified.csv")
 
 dataA = data
@@ -55,18 +59,7 @@ dataA %>% mutate(
 )
 
 
-
-pt =
-dataA %>% 
-  group_by(BatterSide) %>% 
-  summarise(
-    Total = n(),
-    '%' = percent(n()/length(.$TaggedPitchType)),
-    Strikes = length(which(PitchCall != 'BallCalled')),
-    StrikeP = percent(Strikes/Total),
-    Balls = length(which(PitchCall == 'BallCalled')),
-    BallP = percent(Balls/Total)
-  )
+#### Conditional Format Testing ####
 
 library(condformat)
 
@@ -88,6 +81,7 @@ htmlTable(condformat(pt) %>% rule_fill_gradient2(Balls))
 
 summary(data$RelSpeed)
 
+#### Plotly ####
 
 library(plotly)
 
@@ -225,6 +219,153 @@ kable(format = 'html') %>% kable_styling(font_size = 10, position = 'center') %>
   )) %>% 
   row_spec(row = 0, color = "white", background = "orange")
 
+
+
+data %>% mutate(KorBB = recode(KorBB, Strikeout = 'Strikeout', Walk = 'Walk', Undefined = "")) %>% view()
+
+# Arm Angle ----
+
+
+library(plotly)
+
+gametest = filter(game, Pitcher == 'Ackerman, Jess')
+
+gametest = 
+  gametest %>%
+  mutate(
+    ArmRad = atan2(RelHeight, RelSide),
+    ArmDeg = ArmRad * (180/pi),
+    ArmDeg180 = 90 - ArmDeg
+  )
+
+fig = plot_ly(gametest) %>% 
+  add_trace(x = ~RelSide, y = ~RelHeight, color = ~Pitch, colors = ~pcolors, type = 'scatter', mode = 'markers', 
+            marker = list(size = 8, line = list(color = 'black', width = 1))) 
+config(fig, displayModeBar = T) %>% 
+  layout(
+    xaxis = list(range = c(-5,5)),
+    yaxis = list(range = c(0, 7)),
+    title = "Pitch Release Points",
+    showlegend = F,
+    shapes = list(
+      #list(type = 'line',x0 = -5,x1 = 5,y0 = 5,y1 = 5,layer = 'below'),
+      list(type = 'line', x0 = 0, x1 = 3, y0 = 0, y1 = 3*tan(mean(gametest$ArmRad, na.rm = T)), line = list(dash = 'dash'))
+    )
+  )
+
+#### At Bat Testing ####
+
+attach(gameTest)
+
+gameTest = filter(game, Pitcher == 'Kalkbrenner, Craig')
+
+PA = length(which(Count == "0-0"))
+
+FC = length(which(PlayResult == 'FieldersChoice'))
+
+H = length(which(PitchCall == 'InPlay'))
+
+K = length(which(PAOutcome == 'Strikeout'))
+
+
+H+K
+
+gameTest %>% select(PitchCall, PAOutcome, HitType, PlayResult) %>% 
+  filter(PAOutcome == "Strikeout")
+
+sprintf(400/600, fmt = '%#.3f') %>% as.numeric() %>% str()
+
+gameTest %>% 
+  group_by(Date) %>% view()
+
+OutsOnPlay
+
+((sum(OutsOnPlay)+length(which(PAOutcome == 'Strikeout')))/3)
+
+23.333 %% 1
+
+testDF = c(24/3, 23/3, 22/3) %>% as.data.frame()
+
+c(24/3, 23/3, 22/3) %>% as.data.frame()
+
+ifelse(testDF$.%% 1 < .34, testDF$.-.2333333, ifelse(testDF$.%% 1 > .4, testDF$.-.4666666, 'N'))
+
+ifelse(testDF$.%% 1 > .4, testDF$.-.4666666, ifelse(testDF$.%% 1 < .34, testDF$.--.2333333, 'N'))
+
+ifelse(testDF$.%% 1 == 0, testDF$. + 0.0, ifelse(between(testDF$.%%1, .0, .34), testDF$.-.2333333, testDF$.-.4666666))
+
+between(testDF$.%%1, , .4)
+
+PP =
+game %>% 
+  summarise(
+    'Pitches' = n(),
+    'IPb' = ((sum(OutsOnPlay)+length(which(PAOutcome == 'Strikeout')))/3),
+    'IP' = ifelse(IPb %% 1 == 0, IPb + 0.0, 
+                  ifelse(between(IPb %% 1, .0, .34), IPb - .2333333, IPb -.4666666)) %>% as.numeric(),
+    'H' = length(which(PlayResult %in% c('Single', 'Double', 'Triple', 'HomeRun'))),
+    '1B' = length(which(PlayResult == 'Single')), #5
+    '2B' = length(which(PlayResult == 'Double')),
+    '3B' = length(which(PlayResult == 'Triple')),
+    'HR' = length(which(PlayResult == 'HomeRun')),
+    'R' = sum(RunsScored),
+    'FC' = length(which(PlayResult == 'FieldersChoice')), #10
+    'SO' = length(which(PAOutcome == 'Strikeout')),
+    'E' = length(which(PlayResult == 'Error')),
+    'O' = length(which(PlayResult == 'Out')),
+    'BB' = length(which(PAOutcome == 'Walk')),
+    'HBP' = length(which(PitchCall == 'HitByPitch')), #15
+    'SF' = length(which(PlayResult == 'Sacrifice')),
+    'TB' = (`1B` + `2B`*2 + `3B`*3 + `HR`*4),
+    'PA' = length(which(Count == '0-0')),
+    'AB' = FC + H + E + O + SO,
+    'BA' = sprintf((H/AB), fmt = '%#.3f'), #20
+    'OBP' = sprintf((H+BB+HBP)/(AB+BB+HBP+SF), fmt = '%#.3f') %>% as.numeric(),
+    'SLG' = sprintf(TB/AB, fmt = '%#.3f') %>% as.numeric(),
+    'OPS' = sprintf(OBP+SLG, fmt = '%#.3f'),
+    'wOBA' = (((0.69*`BB`)+(0.72*`HBP`)+(0.89*`1B`)+(1.27*`2B`)+(1.62*`3B`)+(2.10*HR))/(AB+BB+SF+HBP)) %>% 
+      round(digits = 3),
+    'K/9' = ((9*SO)/IP) %>% round(2), #25,
+    'WHIP' = ((H+BB)/IP) %>% round(2)
+  ) %>% colnames() %>% as.data.frame()
+
+
+PTable = 
+game %>% 
+  group_by(Pitcher) %>% 
+  summarise(
+    'Pitches' = n(),
+    'IPb' = ((sum(OutsOnPlay)+length(which(PAOutcome == 'Strikeout')))/3),
+    'IP' = ifelse(IPb %% 1 == 0, IPb + 0.0, 
+                  ifelse(between(IPb %% 1, .0, .34), IPb - .2333333, IPb -.4666666)) %>% as.numeric(),
+    'H' = length(which(PlayResult %in% c('Single', 'Double', 'Triple', 'HomeRun'))),
+    '1B' = length(which(PlayResult == 'Single')), #5
+    '2B' = length(which(PlayResult == 'Double')),
+    '3B' = length(which(PlayResult == 'Triple')),
+    'HR' = length(which(PlayResult == 'HomeRun')),
+    'R' = sum(RunsScored),
+    'FC' = length(which(PlayResult == 'FieldersChoice')), #10
+    'SO' = length(which(PAOutcome == 'Strikeout')),
+    'E' = length(which(PlayResult == 'Error')),
+    'O' = length(which(PlayResult == 'Out')),
+    'BB' = length(which(PAOutcome == 'Walk')),
+    'HBP' = length(which(PitchCall == 'HitByPitch')), #15
+    'SF' = length(which(PlayResult == 'Sacrifice')),
+    'TB' = (`1B` + `2B`*2 + `3B`*3 + `HR`*4),
+    'PA' = length(which(Count == '0-0')),
+    'AB' = FC + H + E + O + SO,
+    'BA' = sprintf((H/AB), fmt = '%#.3f'), #20
+    'OBP' = sprintf((H+BB+HBP)/(AB+BB+HBP+SF), fmt = '%#.3f') %>% as.numeric(),
+    'SLG' = sprintf(TB/AB, fmt = '%#.3f') %>% as.numeric(),
+    'OPS' = sprintf(OBP+SLG, fmt = '%#.3f'),
+    'wOBA' = (((0.69*`BB`)+(0.72*`HBP`)+(0.89*`1B`)+(1.27*`2B`)+(1.62*`3B`)+(2.10*HR))/(AB+BB+SF+HBP)) %>% 
+      round(digits = 3),
+    'K/9' = ((9*SO)/IP) %>% round(2), #25,
+    'WHIP' = ((H+BB)/IP) %>% round(2)
+  ) %>% .[, c(1,2,4,19,6,7,8,9,11,14,15,20:26)]
+
+condformat(PTable) %>% 
+  rule_fill_gradient(Pitches) %>% condformat2html()
 
 
 

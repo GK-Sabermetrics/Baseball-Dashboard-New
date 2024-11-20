@@ -17,7 +17,8 @@ data = read.csv("Data/Fall Scrimmage Data copy.csv")
 #### Data Manipulation ####
 # Add Pitch Column and Count column 
 game =
-  data %>% mutate(
+  filter(data, TaggedPitchType != 'Other' & PitcherTeam == "MER_BEA") %>% 
+  mutate(
     Count = paste(Balls, Strikes, sep = "-"), .after = "Outs",
     Pitch = TaggedPitchType,
     Pitch = recode(Pitch, Fastball = "FB", TwoSeamFastBall = "2SFB", Sinker = 'SI', 
@@ -26,7 +27,10 @@ game =
     PitchCall = recode(PitchCall, BallCalled = 'Ball', BallinDirt = 'Ball',
                        FoulBallNotFieldable = 'Foul', FoulBallFieldable = 'Foul'),
     Top.Bottom = recode(Top.Bottom, Top = "T", Bottom = "B"),
-    Inn = paste(Top.Bottom, Inning, sep = " ")
+    Inn = paste(Top.Bottom, Inning, sep = " "),
+    KorBB = recode(KorBB, Strikeout = 'Strikeout', Walk = 'Walk', Undefined = ""),
+    ArmRad = atan2(RelHeight, RelSide),
+    ArmDeg = ArmRad * (180/pi)
   ) %>% 
   rename(
     PAOutcome = KorBB,
@@ -49,7 +53,8 @@ game =
 #game$PitchCall[grepl("BallCalled", game$PitchCall)] = 'Ball'
 #game$PitchCall[grepl("BallinDirt", game$PitchCall)] = 'Ball'
 #game$PitchCall[grepl("FoulBallNotFieldable", game$PitchCall)] = 'Foul'
-
+game$HitType[grepl('Undefined', game$HitType)] = ""
+game$PlayResult[grepl('Undefined', game$PlayResult)] = ""
 
 PitchCallChoices = list(
   "Ball" = 'Ball',
@@ -102,36 +107,174 @@ function(input, output, session) {
     game %>% 
       filter(PitcherTeam == "MER_BEA") %>% 
       filter(
-        if (input$pitcher != "all") Pitcher == input$pitcher else TRUE,
-        if (is.null(input$ball)) TRUE else Balls %in% input$ball,
-        if (is.null(input$strike)) TRUE else Strikes %in% input$strike,
-        if (is.null(input$outs)) TRUE else Outs %in% input$outs,
-        if (is.null(input$pcall)) TRUE else PitchCall %in% input$pcall,
-        if (is.null(input$pitch)) TRUE else Pitch %in% input$pitch,
-        if (is.null(input$batterhand)) TRUE else BatterSide %in% input$batterhand,
-        if (is.null(input$hittype)) TRUE else HitType %in% input$hittype,
+        if (input$pitcherPitcherDashboard != "all") Pitcher == input$pitcherPitcherDashboard else TRUE,
+        if (input$datePitcherDashboard != 'all') Date == input$datePitcherDashboard else TRUE,
+        if (is.null(input$ballPitcherDashboard)) TRUE else Balls %in% input$ballPitcherDashboard,
+        if (is.null(input$strikePitcherDashboard)) TRUE else Strikes %in% input$strikePitcherDashboard,
+        if (is.null(input$outsPitcherDashboard)) TRUE else Outs %in% input$outsPitcherDashboard,
+        if (is.null(input$pcallPitcherDashboard)) TRUE else PitchCall %in% input$pcallPitcherDashboard,
+        if (is.null(input$pitchPitcherDashboard)) TRUE else Pitch %in% input$pitchPitcherDashboard,
+        if (is.null(input$batterhandPitcherDashboard)) TRUE else BatterSide %in% input$batterhandPitcherDashboard,
+        if (is.null(input$hittypePitcherDashboard)) TRUE else HitType %in% input$hittypePitcherDashboard,
         )
   })
   
   PitcherDF = reactive({
     game %>%
-      filter(if (input$pitcher != "all") Pitcher == input$pitcher else TRUE)
+      filter(if (input$pitcherPitcherDashboard != "all") Pitcher == input$pitcherPitcherDashboard else TRUE)
+  })
+  
+  PitcherDFOverview = reactive({
+    game %>% 
+      filter(
+        if (input$pitcherPitcherOverview != 'all') Pitcher == input$pitcherPitcherOverview else TRUE,
+        if (input$datePitcherOverview != 'all') Date == input$datePitcherOverview else TRUE
+        )
+  })
+  
+  # Update Inputs ----
+  updateSelectInput(session, 'pitcherPitcherDashboard', choices = c(unique(game$Pitcher)))
+  
+  updateSelectInput(session, 'datePitcherDashboard', choices = c("all", unique(game$Date)))
+  
+  updateCheckboxGroupInput(session, 'pcallPitcherDashboard', choices = c(PitchCallChoices))
+  
+  updateCheckboxGroupInput(session, 'pitchPitcherDashboard', choices = c(PitchChoices))
+  
+  updateCheckboxGroupInput(session, 'hittypePitcherDashboard', choices = c(HitChoices))
+  
+  updateSelectInput(session, 'pitcherPitcherOverview', choices = c(unique(game$Pitcher)))
+  
+  # Observers for Inputs ----
+  observeEvent(input$pitcherPitcherDashboard, {
+    choices = if (input$pitcherPitcherDashboard == "all") {
+      c("all", unique(game$Date))
+    } else {
+      c("all", unique(game$Date[data$Pitcher == input$pitcherPitcherDashboard]))
+    }
+    updateSelectInput(session, "datePitcherDashboard", choices = choices, selected = input$datePitcherDashboard) 
   })
   
   # Pitcher Standings ----
-  output$PitcherStandingsTable = renderCondformat({
+  output$PitcherStandingsTable = renderUI({
+    
+    WHIP.color.picker <- function(z){
+      if(is.na(z)){return(0)}
+      else if(z <= 1){return(1)}
+      else if(z > 1 & z <= 1.10){return(2)}
+      else if(z > 1.10 & z <= 1.20){return(3)}
+      else if(z > 1.20 & z <= 1.30){return(4)}
+      else if(z > 1.30 & z <= 1.40){return(5)}
+      else if(z > 1.40 & z <= 1.50){return(6)}
+      else if(z > 1.50 & z <= 1.60){return(7)}
+      else {return(8)}
+    }
     
     table = 
-      PitchingDF() %>% 
+      game %>% 
       group_by(Pitcher) %>% 
       summarise(
-        Pitches = n(),
-      )
+        '#' = n(),
+        'IPb' = ((sum(OutsOnPlay)+length(which(PAOutcome == 'Strikeout')))/3),
+        'IP' = ifelse(IPb %% 1 == 0, IPb + 0.0, 
+                      ifelse(between(IPb %% 1, .0, .34), IPb - .2333333, IPb -.4666666)) %>% as.numeric(),
+        'H' = length(which(PlayResult %in% c('Single', 'Double', 'Triple', 'HomeRun'))),
+        '1B' = length(which(PlayResult == 'Single')), #5
+        '2B' = length(which(PlayResult == 'Double')),
+        '3B' = length(which(PlayResult == 'Triple')),
+        'HR' = length(which(PlayResult == 'HomeRun')),
+        'R' = sum(RunsScored),
+        'FC' = length(which(PlayResult == 'FieldersChoice')), #10
+        'SO' = length(which(PAOutcome == 'Strikeout')),
+        'E' = length(which(PlayResult == 'Error')),
+        'O' = length(which(PlayResult == 'Out')),
+        'BB' = length(which(PAOutcome == 'Walk')),
+        'HBP' = length(which(PitchCall == 'HitByPitch')), #15
+        'SF' = length(which(PlayResult == 'Sacrifice')),
+        'TB' = (`1B` + `2B`*2 + `3B`*3 + `HR`*4),
+        'PA' = length(which(Count == '0-0')),
+        'AB' = FC + H + E + O + SO,
+        'BA' = sprintf((H/AB), fmt = '%#.3f') %>% as.numeric(), #20
+        'OBP' = sprintf((H+BB+HBP)/(AB+BB+HBP+SF), fmt = '%#.3f') %>% as.numeric(),
+        'SLG' = sprintf(TB/AB, fmt = '%#.3f') %>% as.numeric(),
+        'OPS' = sprintf(OBP+SLG, fmt = '%#.3f') %>% as.numeric(),
+        'wOBA' = (((0.69*`BB`)+(0.72*`HBP`)+(0.89*`1B`)+(1.27*`2B`)+(1.62*`3B`)+(2.10*HR))/(AB+BB+SF+HBP)) %>% 
+          round(digits = 3),
+        'K/9' = ((9*SO)/IP) %>% round(2), #25,
+        'WHIP' = ((H+BB)/IP) %>% round(2)
+      ) %>% .[, c(1,2,4,20,5,7,8,9,10,12,15,16,21:27)] %>% .[-c(11,22),]
+    
+    # WHITE rgb(1,1,1)
+    # GREEN rgb(0,1,0)
+    # YELLOW rgb(1,1,0)
+    # RED rgb(1,0,0),
+    # BLUE rgb(0,1,1)
     
     # Apply conditional formatting
     condformat(table) %>% 
-      rule_fill_gradient(Pitches, low = "lightblue", high = "blue") %>% theme_htmlTable(rnames = FALSE)
+      rule_fill_gradient(BA, low = rgb(1,1,1), high = rgb(1,0,0)) %>% 
+      rule_fill_gradient(`K/9`, low = rgb(1,1,1), high = rgb(1,0,0)) %>% 
+      rule_fill_gradient(OBP, low = rgb(1,1,1), high = rgb(1,1,0)) %>% 
+      rule_fill_gradient(SLG, low = rgb(0,1,1), high = rgb(1,1,0)) %>%
+      rule_fill_gradient2(OPS, low = rgb(1,1,0), high = rgb(1,0,0)) %>%
+      rule_fill_gradient(wOBA, low = rgb(1,1,1), high = rgb(1,0,0)) %>%
+      rule_fill_discrete(WHIP, expression = sapply(WHIP,WHIP.color.picker),
+        colours=c("0" = "white", 
+                  "1" = "limegreen", 
+                  "2" =  "green", 
+                  "3" = "lawngreen",
+                  "4" = 'lightgreen',
+                  "5" = 'yellow',
+                  "6" = 'orange',
+                  "7" = 'darkorange',
+                  "8" = 'red'
+                  )) %>% 
+      theme_htmlTable(rnames = FALSE) %>% 
+      condformat2html() %>% HTML()
   })
+  
+  #### Pitcher Individual Stats Table ####
+  output$PitcherIndividualStats = renderUI({
+    
+    tableA = PitcherDFOverview() %>% 
+      summarise(
+        'Pitches' = n(),
+        'IPb' = ((sum(OutsOnPlay)+length(which(PAOutcome == 'Strikeout')))/3),
+        'IP' = ifelse(IPb %% 1 == 0, IPb + 0.0, 
+                      ifelse(between(IPb %% 1, .0, .34), IPb - .2333333, IPb -.4666666)) %>% as.numeric(),
+        'H' = length(which(PlayResult %in% c('Single', 'Double', 'Triple', 'HomeRun'))),
+        '1B' = length(which(PlayResult == 'Single')), #5
+        '2B' = length(which(PlayResult == 'Double')),
+        '3B' = length(which(PlayResult == 'Triple')),
+        'HR' = length(which(PlayResult == 'HomeRun')),
+        'R' = sum(RunsScored),
+        'FC' = length(which(PlayResult == 'FieldersChoice')), #10
+        'SO' = length(which(PAOutcome == 'Strikeout')),
+        'E' = length(which(PlayResult == 'Error')),
+        'O' = length(which(PlayResult == 'Out')),
+        'BB' = length(which(PAOutcome == 'Walk')),
+        'HBP' = length(which(PitchCall == 'HitByPitch')), #15
+        'SF' = length(which(PlayResult == 'Sacrifice')),
+        'TB' = (`1B` + `2B`*2 + `3B`*3 + `HR`*4),
+        'PA' = length(which(Count == '0-0')),
+        'AB' = FC + H + E + O + SO,
+        'BA' = sprintf((H/AB), fmt = '%#.3f'), #20
+        'OBP' = sprintf((H+BB+HBP)/(AB+BB+HBP+SF), fmt = '%#.3f') %>% as.numeric(),
+        'SLG' = sprintf(TB/AB, fmt = '%#.3f') %>% as.numeric(),
+        'OPS' = sprintf(OBP+SLG, fmt = '%#.3f'),
+        'wOBA' = (((0.69*`BB`)+(0.72*`HBP`)+(0.89*`1B`)+(1.27*`2B`)+(1.62*`3B`)+(2.10*HR))/(AB+BB+SF+HBP)) %>% 
+          round(digits = 3),
+        'K/9' = ((9*SO)/IP) %>% round(2), #25,
+        'WHIP' = ((H+BB)/IP) %>% round(2)
+      ) %>% .[, c(1,3,19,4,6,7,8,9,11,14,15,20:26)]
+    
+    tableA %>% 
+      kable(format = 'html', align = 'c') %>% kable_styling(font_size = 15) %>% 
+      kable_styling(bootstrap_options = 'bordered') %>% 
+      row_spec(row = 0, color = "white", background = "orange") %>% HTML()
+    
+  })
+  
   
   # Pitch Metrics ----
 #  output$PitcherMetricsTable = renderTable({
@@ -159,7 +302,8 @@ function(input, output, session) {
 #      )
 #  }, striped = TRUE, bordered = TRUE)
   
-  output$PitcherMetricsTable = renderUI({
+  #### . > Pitcher Dashboard Metrics Table ####
+  output$PitcherMetricsTablePitcherDashboard = renderUI({
     
     pitch_order <- c("FB", "2SFB", "SI", "CT", "SP", "CH", "SL", "CB","KC")
     
@@ -185,7 +329,6 @@ function(input, output, session) {
       mutate(Pitch = factor(Pitch, levels = pitch_order)) %>%
       arrange(Pitch)
     
-    
     tableA %>% 
       kable(format = 'html', align = 'c') %>% kable_styling(font_size = 15) %>% 
       kable_styling(bootstrap_options = 'bordered') %>% 
@@ -193,6 +336,7 @@ function(input, output, session) {
         tableA$Pitch == "FB" ~ '#d22d49',
         tableA$Pitch == "2SFB" ~ '#93afd4',
         tableA$Pitch == "SI" ~ '#de6a04',
+        tableA$Pitch == "SP" ~ '#ddb33a',
         tableA$Pitch == "CT" ~ '#933f2c',
         tableA$Pitch == "CH" ~ '#1dbe3a',
         tableA$Pitch == "SL" ~ '#c3bd0e',
@@ -202,8 +346,55 @@ function(input, output, session) {
       row_spec(row = 0, color = "white", background = "orange") %>% HTML()
   })
   
+  #### . > Pitcher Overview Metrics Table ####
+  output$PitcherMetricsTablePitcherOverview = renderUI({
+    
+    pitch_order <- c("FB", "2SFB", "SI", "CT", "SP", "CH", "SL", "CB","KC")
+    
+    tableA = 
+      PitcherDFOverview() %>% 
+      group_by(Pitch) %>% 
+      summarise(
+        "#" = n(),
+        Usage = percent(n()/length(.$Pitch)),#3
+        Max = floor(max(Velo, na.rm = TRUE)) %>% as.integer(),
+        Avg = floor(mean(Velo, na.rm = TRUE)) %>% as.integer(),
+        Spin = mean(Spin, na.rm = T) %>% as.integer(),
+        Tilt = Tilt %>% as.POSIXct(format = '%H:%M', tz = 'UTC') %>%
+          as.numeric() %>% mean(na.rm = T) %>%
+          as.POSIXct(origin = '1970-01-01', tz = 'UTC') %>%
+          format(format = "%k:%M", tz = 'UTC'),
+        HB = mean(HB, na.rm = T) %>% round(2),
+        IVB = mean(IVB, na.rm = T) %>% round(2),
+        VAA = mean(VertApprAngle, na.rm = T) %>% round(2),
+        HAA = mean(HorzApprAngle, na.rm = T) %>% round(2),
+        Ext = mean(Extension, na.rm = T) %>% round(2)
+      ) %>% 
+      mutate(Pitch = factor(Pitch, levels = pitch_order)) %>%
+      arrange(Pitch)
+    
+    tableA %>% 
+      kable(format = 'html', align = 'c') %>% kable_styling(font_size = 15) %>% 
+      kable_styling(bootstrap_options = 'bordered') %>% 
+      column_spec(1, border_left = TRUE, bold = T, color = 'white',background = case_when(
+        tableA$Pitch == "FB" ~ '#d22d49',
+        tableA$Pitch == "2SFB" ~ '#93afd4',
+        tableA$Pitch == "SI" ~ '#de6a04',
+        tableA$Pitch == "SP" ~ '#ddb33a',
+        tableA$Pitch == "CT" ~ '#933f2c',
+        tableA$Pitch == "CH" ~ '#1dbe3a',
+        tableA$Pitch == "SL" ~ '#c3bd0e',
+        tableA$Pitch == "CB" ~ '#00d1ed',
+        tableA$Pitch == "KC" ~ '#854cb5'
+      )) %>% 
+      row_spec(row = 0, color = "white", background = "orange") %>% HTML()
+  })
+  
+  
+  
   #### Pitch Stats ####
-  output$PitcherStatsTable = renderUI({
+  #### . > Pitcher Dashboard Stats Table ####
+  output$PitcherStatsTablePitcherDashboard = renderUI({
     
     pitch_order <- c("FB", "2SFB", "SI", "CT", "SP", "CH", "SL", "CB","KC")
     
@@ -232,6 +423,47 @@ function(input, output, session) {
         tableA$Pitch == "FB" ~ '#d22d49',
         tableA$Pitch == "2SFB" ~ '#93afd4',
         tableA$Pitch == "SI" ~ '#de6a04',
+        tableA$Pitch == "SP" ~ '#ddb33a',
+        tableA$Pitch == "CT" ~ '#933f2c',
+        tableA$Pitch == "CH" ~ '#1dbe3a',
+        tableA$Pitch == "SL" ~ '#c3bd0e',
+        tableA$Pitch == "CB" ~ '#00d1ed',
+        tableA$Pitch == "KC" ~ '#854cb5'
+      )) %>% 
+      row_spec(row = 0, color = "white", background = "orange") %>% HTML()
+  })
+  
+  #### . > Pitcher Overview Stats Table ####
+  output$PitcherStatsTablePitcherOverview = renderUI({
+    
+    pitch_order <- c("FB", "2SFB", "SI", "CT", "SP", "CH", "SL", "CB","KC")
+    
+    tableA = PitcherDFOverview() %>% 
+      group_by(Pitch) %>% 
+      summarise(
+        '#' = n(),
+        CStrk = length(which(PitchCall == 'StrikeCalled')),
+        Swing = length(which(!PitchCall %in% c('StrikeCalled', 'HitByPitch', 'Ball'))),
+        Whiff = length(which(PitchCall == 'StrikeSwinging')),
+        'Strk%' = percent(length(which(!PitchCall %in% c('Ball', 'HitByPitch', 'InPlay')))/n()),
+        'Whiff%' = percent(Whiff/Swing),
+        'CSW%' = percent((CStrk+Whiff)/n()),
+        AvgEV = mean(ExitSpeed, na.rm = TRUE) %>% round(),
+        'Hard%' = percent(length(which(ExitSpeed > 90))/n()),
+        FP = length(which(Count == '0-0')),
+        'FPStrk%' = percent(length(which(Count == '0-0' & !PitchCall %in% c('Ball', 'HitByPitch', 'InPlay')))/FP)
+      ) %>% 
+      mutate(Pitch = factor(Pitch, levels = pitch_order)) %>%
+      arrange(Pitch)
+    
+    tableA %>% 
+      kable(format = 'html', align = 'c') %>% kable_styling(font_size = 15) %>% 
+      kable_styling(bootstrap_options = 'bordered') %>% 
+      column_spec(1, border_left = TRUE, bold = T, color = 'white',background = case_when(
+        tableA$Pitch == "FB" ~ '#d22d49',
+        tableA$Pitch == "2SFB" ~ '#93afd4',
+        tableA$Pitch == "SI" ~ '#de6a04',
+        tableA$Pitch == "SP" ~ '#ddb33a',
         tableA$Pitch == "CT" ~ '#933f2c',
         tableA$Pitch == "CH" ~ '#1dbe3a',
         tableA$Pitch == "SL" ~ '#c3bd0e',
@@ -274,20 +506,22 @@ function(input, output, session) {
     #%>%.[, c(1,2,3,5,7,9,10)]
   }, striped = TRUE, bordered = TRUE)
     
-
-  # Update Inputs ----
-  updateSelectInput(session, 'pitcher', choices = c(unique(game$Pitcher)))
-  
-  updateCheckboxGroupInput(session, 'pcall', choices = c(PitchCallChoices))
-  
-  updateCheckboxGroupInput(session, 'pitch', choices = c(PitchChoices))
-  
-  updateCheckboxGroupInput(session, 'hittype', choices = c(HitChoices))
   
   # End Update Inputs
   
   # Movement Plot ----
   output$PitchMovementPlotMain = renderPlotly({
+    
+    p = PitchingDF()
+    
+    hand = p$PitcherThrows[1]
+    
+    x1 = ifelse(hand == "Left", -8, 8)
+    
+    y1 = abs(3*tan(mean(p$ArmRad, na.rm = T)))
+    
+    a = list(x = x1, y = y1, text = paste(paste(round(mean(PitchingDF()$ArmDeg, na.rm=T)),"º", sep = ""),"Arm Angle"), 
+             showarrow = F, yshift = 10)
     
     fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors) %>% 
       add_trace(x = ~HB, y = ~IVB, type = 'scatter', mode = 'markers',
@@ -308,6 +542,7 @@ function(input, output, session) {
       layout(
         xaxis = list(range = c(-30,30)),
         yaxis = list(range = c(-30,30)),
+        annotations = a,
         title = list(
           text = "Pitch Movement",
           x = .55,           # Centers the title
@@ -319,7 +554,11 @@ function(input, output, session) {
                       xanchor = 'left',
                       yanchor = 'top',
                       itemwidth = -1,
-                      traceorder = 'normal')
+                      traceorder = 'normal'),
+        shapes = list(
+          list(type = 'line', x0 = 0, x1 = x1, y0 = 0, y1 = y1, line = list(dash = 'dash'))
+        )
+        
       )
   })
   
@@ -372,7 +611,7 @@ function(input, output, session) {
   
   #### Data Point Display ####
   
-  #### +Movement Data ####
+  #### . > Movement Data ####
   output$PitchMovementData = renderTable({
     
     d = event_data('plotly_selected', source = 'PMB')
@@ -384,7 +623,7 @@ function(input, output, session) {
     filter(MovementData, HB %in% d[,3])
   })
   
-  #### +Strike Zone Data ####
+  #### . > Strike Zone Data ####
   output$StrikeZoneData = renderTable({
     d = event_data('plotly_selected', source = 'SZP')
     
@@ -400,12 +639,18 @@ function(input, output, session) {
   
   # Strike Zone Plot ----
   
-  # +Main ----
+  #### . > SZ Main ####
   output$StrikeZonePlotMain = renderPlotly({
     
     fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors) %>% 
       add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
-                marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none'
+                marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
+                text = ~paste(
+                  PitchingDF()$PitchCall,
+                  "<br>",PitchingDF()$HitType,
+                  "<br>",PitchingDF()$PlayResult
+                              ), 
+                hoverinfo = 'text'
                 )
     fig = fig %>% 
     config(fig, displayModeBar = F) %>% 
@@ -458,7 +703,7 @@ function(input, output, session) {
     
   })
   
-  # +Sub ----
+  #### . > SZ Sub ####
   output$StrikeZonePlotSub = renderPlotly({
     
     fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors, source = 'SZP') %>% 
@@ -516,11 +761,14 @@ function(input, output, session) {
   
   
   
-  # Release Plot ----
+  #### Release Plot ####
+  
+  #### . > Release Plot Main ####
   output$PitcherReleasePlotMain = renderPlotly({
+    
     fig = plot_ly(PitchingDF()) %>% 
       add_trace(x = ~RelSide, y = ~RelHeight, color = ~Pitch, colors = ~pcolors, type = 'scatter', mode = 'markers', 
-                marker = list(size = 8, line = list(color = 'black', width = 1))) 
+                marker = list(size = 8, line = list(color = 'black', width = 1)))
       config(fig, displayModeBar = F) %>% 
       layout(
         xaxis = list(range = c(-5,5)),
@@ -528,34 +776,23 @@ function(input, output, session) {
         title = "Pitch Release Points",
         showlegend = F,
         shapes = list(
-          type = 'line',
-          x0 = -5,
-          x1 = 5,
-          y0 = 5,
-          y1 = 5,
-          layer = 'below'
-        )
-      )
+          list(
+          type = 'line',x0 = -5,x1 = 5,y0 = 5,y1 = 5,layer = 'below'
+          )
+      ))
   })
   
   output$PitcherReleasePlotSub = renderPlotly({
     fig = plot_ly(PitchingDF()) %>% 
       add_trace(x = ~RelSide, y = ~RelHeight, color = ~Pitch, colors = ~pcolors, type = 'scatter', mode = 'markers', 
                 marker = list(size = 8, line = list(color = 'black', width = 1))) 
-    config(fig, displayModeBar = F) %>% 
+    config(fig) %>% 
       layout(
         xaxis = list(range = c(-5,5)),
-        yaxis = list(range = c(4, 7)),
+        yaxis = list(range = c(0, 7)),
         title = "Pitch Release Points",
         showlegend = F,
-        shapes = list(
-          type = 'line',
-          x0 = -5,
-          x1 = 5,
-          y0 = 5,
-          y1 = 5,
-          layer = 'below'
-        )
+        shapes = list()
       )
   })
  
@@ -629,11 +866,41 @@ function(input, output, session) {
     
   })
   
+  #### Batter Table ####
+  output$BatterTable = renderUI({
+    
+   tableA = game %>% 
+      filter(BatterTeam == "MER_BEA") %>% 
+      group_by(BatterTeam) %>% 
+      summarise(
+        'Pitches' = n(),
+        PA = length(which(Count == '0-0')),
+        AB = length(which(PitchCall == 'InPlay' & !PlayResult %in% c('Sacrifice'))) +
+          length(which(PitchCall %in% c('StrikeCalled', 'StrikeSwinging') & PAOutcome == 'Strikeout')),
+        H = length(which(PitchCall == 'InPlay' & !PlayResult %in% 
+                           c('Out', 'Sacrifice', 'FieldersChoice', 'Error', 'Undefined'))),
+        '2B' = length(which(PlayResult == 'Double')),
+        '3B' = length(which(PlayResult == 'Triple')),
+        KCall = length(which(PitchCall == 'StrikeCalled' & PAOutcome == 'Strikeout')),
+        KSwing = length(which(PitchCall == 'StrikeSwinging' & PAOutcome == 'Strikeout')),
+        AVG = sprintf((H/AB), fmt = '%#.3f'),
+        
+      )%>%.[, -c(1)]
+    
+   tableA %>% 
+     kable(format = 'html', align = 'c') %>% kable_styling(font_size = 15) %>% 
+     kable_styling(bootstrap_options = 'bordered') %>% 
+     row_spec(row = 0, color = "white", background = "orange") %>% HTML()
+    
+  })
+  
+  
   #### Observe Events ####
   
   observeEvent(input$pitcher,{
     updateCheckboxGroupInput(session, 'pitch', choices = PitchChoices[PitchChoices %in% unique(PitcherDF()$Pitch)])
   })
   
+  output$PitcherNamePitcherOverview = renderText({input$pitcherPitcherOverview})
   
 }
