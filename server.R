@@ -30,7 +30,8 @@ game =
     Inn = paste(Top.Bottom, Inning, sep = " "),
     KorBB = recode(KorBB, Strikeout = 'Strikeout', Walk = 'Walk', Undefined = ""),
     ArmRad = atan2(RelHeight, RelSide),
-    ArmDeg = ArmRad * (180/pi)
+    ArmDeg = ArmRad * (180/pi),
+    ArmDeg = ifelse(PitcherThrows == "Right", ArmDeg, 180-ArmDeg)
   ) %>% 
   rename(
     PAOutcome = KorBB,
@@ -76,6 +77,11 @@ HitChoices = list(
   'P' = 'Popup'
 )
 
+PAChoices = list(
+  'BB' = 'Walk',
+  'SO' = 'Strikeout'
+)
+
 pcolors = c('#d22d49','#93afd4', '#1dbe3a', '#c3bd0e', '#00d1ed', '#933f2c', '#de6a04', '#ddb33a', '#854cb5') 
 
 pcolors = setNames(pcolors, c('FB', '2SFB', 'CH', 'SL', 'CB', 'CT', 'SI', 'SP', 'KC'))
@@ -116,6 +122,7 @@ function(input, output, session) {
         if (is.null(input$pitchPitcherDashboard)) TRUE else Pitch %in% input$pitchPitcherDashboard,
         if (is.null(input$batterhandPitcherDashboard)) TRUE else BatterSide %in% input$batterhandPitcherDashboard,
         if (is.null(input$hittypePitcherDashboard)) TRUE else HitType %in% input$hittypePitcherDashboard,
+        if (is.null(input$paoutcomePitcherDashboard)) TRUE else PAOutcome %in% input$paoutcomePitcherDashboard,
         )
   })
   
@@ -145,6 +152,10 @@ function(input, output, session) {
   
   updateSelectInput(session, 'pitcherPitcherOverview', choices = c(unique(game$Pitcher)))
   
+  updateCheckboxGroupInput(session, 'paoutcomePitcherDashboard', choices = c(PAChoices))
+  
+  updateSelectInput(session, 'catcher', choices = c(game$Catcher))
+  
   # Observers for Inputs ----
   observeEvent(input$pitcherPitcherDashboard, {
     choices = if (input$pitcherPitcherDashboard == "all") {
@@ -153,6 +164,10 @@ function(input, output, session) {
       c("all", unique(game$Date[data$Pitcher == input$pitcherPitcherDashboard]))
     }
     updateSelectInput(session, "datePitcherDashboard", choices = choices, selected = input$datePitcherDashboard) 
+  })
+  
+  observeEvent(input$pitcher,{
+    updateCheckboxGroupInput(session, 'pitch', choices = PitchChoices[PitchChoices %in% unique(PitcherDF()$Pitch)])
   })
   
   # Pitcher Standings ----
@@ -212,12 +227,13 @@ function(input, output, session) {
     
     # Apply conditional formatting
     condformat(table) %>% 
-      rule_fill_gradient(BA, low = rgb(1,1,1), high = rgb(1,0,0)) %>% 
-      rule_fill_gradient(`K/9`, low = rgb(1,1,1), high = rgb(1,0,0)) %>% 
-      rule_fill_gradient(OBP, low = rgb(1,1,1), high = rgb(1,1,0)) %>% 
-      rule_fill_gradient(SLG, low = rgb(0,1,1), high = rgb(1,1,0)) %>%
-      rule_fill_gradient2(OPS, low = rgb(1,1,0), high = rgb(1,0,0)) %>%
-      rule_fill_gradient(wOBA, low = rgb(1,1,1), high = rgb(1,0,0)) %>%
+      rule_fill_gradient2(BA, low = 'green2', mid = 'white', high = 'red2', midpoint = .270) %>% 
+      rule_fill_gradient2(`K/9`, low = 'green2', mid = 'white', high = 'red2') %>% 
+      rule_fill_gradient2(OBP, low = 'green2', mid = 'white', high = 'red2') %>% 
+      rule_fill_gradient2(SLG, low = 'green2', mid = 'white', high = 'red2') %>% 
+      rule_fill_gradient2(OPS, low = 'green2', mid = 'white', high = 'red2') %>% 
+      rule_fill_gradient2(wOBA, low = 'green2', mid = 'white' , high = 'red2', midpoint = .320) %>%
+      rule_text_bold(wOBA, OBP > wOBA) %>% 
       rule_fill_discrete(WHIP, expression = sapply(WHIP,WHIP.color.picker),
         colours=c("0" = "white", 
                   "1" = "limegreen", 
@@ -866,25 +882,53 @@ function(input, output, session) {
     
   })
   
-  #### Batter Table ####
-  output$BatterTable = renderUI({
+  #### Batter Metrics Table ####
+  output$BatterMetricsTable = renderUI({
     
-   tableA = game %>% 
+    tableA = game %>% 
+      filter(BatterTeam == 'MER_BEA') %>% 
+      group_by(BatterTeam) %>% 
+      summarise(
+        P = n(),
+        'Max EV' = max(ExitSpeed, na.rm = T) %>% round(),
+        'Avg EV' = mean(ExitSpeed, na.rm = T) %>% round(),
+        'Avg LA' = mean(Angle, na.rm = T) %>% round(1),
+        'Max Hit Spin' = max(HitSpinRate, na.rm = T) %>% round(),
+        'Avg Hit Spin' = mean(HitSpinRate, na.rm = T) %>% round(),
+        "Avg Distance" = mean(Distance, na.rm = T) %>% round(),
+        "Avg Hang Time" = mean(HangTime, na.rm = T) %>% round(1)
+      ) %>% .[, -c(1)]
+    tableA %>% 
+      kable(format = 'html', align = 'c') %>% kable_styling(font_size = 15) %>% 
+      kable_styling(bootstrap_options = 'bordered') %>% 
+      row_spec(row = 0, color = "white", background = "orange") %>% HTML()
+    
+  })
+  
+  
+  
+  #### Batter Stats Table ####
+  output$BatterStatsTable = renderUI({
+    
+    tableA = game %>% 
       filter(BatterTeam == "MER_BEA") %>% 
       group_by(BatterTeam) %>% 
       summarise(
-        'Pitches' = n(),
-        PA = length(which(Count == '0-0')),
-        AB = length(which(PitchCall == 'InPlay' & !PlayResult %in% c('Sacrifice'))) +
-          length(which(PitchCall %in% c('StrikeCalled', 'StrikeSwinging') & PAOutcome == 'Strikeout')),
+        P = n(),
+        BF = length(which(Count == '0-0')),
         H = length(which(PitchCall == 'InPlay' & !PlayResult %in% 
                            c('Out', 'Sacrifice', 'FieldersChoice', 'Error', 'Undefined'))),
         '2B' = length(which(PlayResult == 'Double')),
         '3B' = length(which(PlayResult == 'Triple')),
-        KCall = length(which(PitchCall == 'StrikeCalled' & PAOutcome == 'Strikeout')),
-        KSwing = length(which(PitchCall == 'StrikeSwinging' & PAOutcome == 'Strikeout')),
-        AVG = sprintf((H/AB), fmt = '%#.3f'),
-        
+        'HR' = sum(PlayResult == 'HomeRun'),
+        K = length(which(PAOutcome == 'Strikeout')),
+        BB = length(which(PAOutcome == 'Walk')),
+        HBP = length(which(PitchCall == 'HitByPitch')),
+        BIP = sum(PitchCall == 'InPlay'),
+        H = sum(PlayResult %in% c('Single', 'Double', 'Triple', 'HomeRun')),
+        XBH = sum(PlayResult %in% c('Double', 'Triple', 'HomeRun')),
+        R = sum(RunsScored),
+        BAA = round(H / (BF - BB - HBP - sum(PlayResult =='Sacrifice')),3)
       )%>%.[, -c(1)]
     
    tableA %>% 
@@ -894,13 +938,81 @@ function(input, output, session) {
     
   })
   
+  #### Pitcher Name Output ####
+  output$PitcherNamePitcherOverview = renderText({input$pitcherPitcherOverview})
   
-  #### Observe Events ####
-  
-  observeEvent(input$pitcher,{
-    updateCheckboxGroupInput(session, 'pitch', choices = PitchChoices[PitchChoices %in% unique(PitcherDF()$Pitch)])
+  #### Catcher Plots and Info ####
+  CatchingDF = reactive({
+    game %>% filter(CatcherTeam == "MER_BEA") %>% 
+      filter(PitchCall %in% c('Ball', 'StrikeCalled')) %>% 
+      filter(
+      if (input$catcher != "all") Catcher == input$catcher else TRUE
+      )
   })
   
-  output$PitcherNamePitcherOverview = renderText({input$pitcherPitcherOverview})
+  
+  #### Catcher Strike Zone ####
+  output$CatcherStrikeZone = renderPlotly({
+    
+    fig = plot_ly(CatchingDF(), color = ~Pitch, colors = pcolors) %>% 
+      add_trace(x = ~ PlateLocSide*-1, y = ~ PlateLocHeight, type = 'scatter', mode = 'markers',
+                marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
+                text = ~paste(
+                  CatchingDF()$PitchCall,
+                  "<br>",CatchingDF()$HitType,
+                  "<br>",CatchingDF()$PlayResult
+                ), 
+                hoverinfo = 'text'
+      )
+    fig = fig %>% 
+      config(fig, displayModeBar = F) %>% 
+      layout(
+        xaxis = list(range = c(-3,3), showgrid = T, zeroline = F, title = NA),
+        yaxis = list(range = c(-0.5,5), showgrid = T, zeroline = F, title = NA),
+        title = "Strike Zone",
+        showlegend = F,
+        shapes = list(
+          list(
+            type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5, layer = 'below'
+          ),
+          #Draw Plate
+          list(
+            type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.15,y1 = 0.15, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = -0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+          ),
+          #End Draw Plate
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',
+            x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          )
+        )
+      )
+  })
+  
+  
   
 }

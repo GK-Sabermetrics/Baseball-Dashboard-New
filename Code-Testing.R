@@ -368,4 +368,8 @@ condformat(PTable) %>%
   rule_fill_gradient(Pitches) %>% condformat2html()
 
 
+data.frame(Student = c("Alice", "Bob", "Charlie"),
+           Evaluation = c("Great", "Well done", "Good job!")) %>%
+  condformat() %>%
+  condformat2grob()
 

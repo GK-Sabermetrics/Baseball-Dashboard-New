@@ -67,6 +67,7 @@ page_navbar(
         ),
         fluidRow(
           column(4, checkboxGroupInput('pitchPitcherDashboard', 'Pitch', c(0))),
+          column(4, checkboxGroupInput('paoutcomePitcherDashboard', 'PA Result', c(0))),
         )
     ), # End Sidebar
     navset_tab(
@@ -139,13 +140,21 @@ page_navbar(
         sidebar = sidebar(
           width = 250,
           open = 'open'
-        ),
-        htmlOutput('BatterTable')
+        ), #### Main Dashboard Page ####
+        htmlOutput('BatterMetricsTable'),
+        htmlOutput('BatterStatsTable')
       )
     )
-            
-            
   ),
+  nav_panel("Positional Info",
+            layout_columns(col_widths = 6,
+                selectInput('catcher', 'Catcher', c(0))
+                           ),
+            layout_columns(col_widths = 6,
+            plotlyOutput('CatcherStrikeZone', height = '500px')
+            )
+            
+            ),
   # Game Reports Page ----
   nav_panel("Game Reports", "game reports content"),
   # Umpire Reports Page ----
