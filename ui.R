@@ -41,7 +41,13 @@ page_navbar(
               h2("Pitch Metrics", align = 'center'),
               htmlOutput('PitcherMetricsTablePitcherOverview'),
               h2("Pitch Stats", align = 'center'),
-              htmlOutput('PitcherStatsTablePitcherOverview')
+              htmlOutput('PitcherStatsTablePitcherOverview'),
+              layout_columns(col_widths = 4,
+                plotlyOutput("PitchMovementPlotOverview"),
+                plotlyOutput("StrikeZonePlotOverview"),
+                plotlyOutput("PitcherReleasePlotOverview")
+                             
+                             )
               ),
     nav_panel('Pitcher Standings',
               htmlOutput('PitcherStandingsTable')
@@ -52,7 +58,7 @@ page_navbar(
       width = 250,
       open = 'open',
       title = 'Filters',
-      selectInput('season', 'Season (Not Yet Functional)', c('all')),
+      selectInput('seasonPitcherDashboard', 'Season (Not Yet Functional)', c('all')),
       selectInput('pitcherPitcherDashboard', 'Pitcher', c("all")),
       selectInput('datePitcherDashboard', 'Date', c("all")),
       fluidRow(
@@ -78,7 +84,7 @@ page_navbar(
               htmlOutput('PitcherMetricsTablePitcherDashboard'),
               htmlOutput('PitcherStatsTablePitcherDashboard')
             ),
-            layout_columns( col_widths = 4,
+            layout_columns(col_widths = 4,
               plotlyOutput('PitchMovementPlotMain'),
               plotlyOutput('StrikeZonePlotMain'),
               plotlyOutput('PitcherReleasePlotMain')
@@ -139,7 +145,11 @@ page_navbar(
       page_sidebar(
         sidebar = sidebar(
           width = 250,
-          open = 'open'
+          open = 'open',
+          title = 'Filters',
+          selectInput('seasonBatterDashboard', 'Season', c(0)),
+          selectInput('batterBatterDashboard', 'Batter', c(0)),
+          selectInput('dateBatterDashboard', 'Date', c(0))
         ), #### Main Dashboard Page ####
         htmlOutput('BatterMetricsTable'),
         htmlOutput('BatterStatsTable')
@@ -147,11 +157,13 @@ page_navbar(
     )
   ),
   nav_panel("Positional Info",
-            layout_columns(col_widths = 6,
-                selectInput('catcher', 'Catcher', c(0))
+            layout_columns(col_widths = 4,
+                selectInput('catcherPositionInfo', 'Catcher', c(0)),
+                selectInput('datePositionInfo', 'Date', c(0))
                            ),
             layout_columns(col_widths = 6,
-            plotlyOutput('CatcherStrikeZone', height = '500px')
+            plotlyOutput('CatcherStrikeZone', height = '500px'),
+            plotlyOutput('CatcherCatchPosition', height = '500px')
             )
             
             ),

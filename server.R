@@ -154,7 +154,9 @@ function(input, output, session) {
   
   updateCheckboxGroupInput(session, 'paoutcomePitcherDashboard', choices = c(PAChoices))
   
-  updateSelectInput(session, 'catcher', choices = c(game$Catcher))
+  updateSelectInput(session, 'catcherPositionInfo', choices = c(game$Catcher))
+  
+  updateSelectInput(session, 'datePositionInfo', choices = c('all',game$Date))
   
   # Observers for Inputs ----
   observeEvent(input$pitcherPitcherDashboard, {
@@ -166,8 +168,8 @@ function(input, output, session) {
     updateSelectInput(session, "datePitcherDashboard", choices = choices, selected = input$datePitcherDashboard) 
   })
   
-  observeEvent(input$pitcher,{
-    updateCheckboxGroupInput(session, 'pitch', choices = PitchChoices[PitchChoices %in% unique(PitcherDF()$Pitch)])
+  observeEvent(input$pitcherPitcherDashboard,{
+    updateCheckboxGroupInput(session, 'pitchPitcherDashboard', choices = PitchChoices[PitchChoices %in% unique(PitcherDF()$Pitch)])
   })
   
   # Pitcher Standings ----
@@ -525,7 +527,8 @@ function(input, output, session) {
   
   # End Update Inputs
   
-  # Movement Plot ----
+  #### Pitch Movement Plot ####
+  #### . > Pitch Movement Dashboard ####
   output$PitchMovementPlotMain = renderPlotly({
     
     p = PitchingDF()
@@ -578,20 +581,17 @@ function(input, output, session) {
       )
   })
   
+  #### . > Pitch Movement Tab ####
   output$PitchMovementPlotSub = renderPlotly({
     
     fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors, source = 'PMB') %>% 
       add_trace(x = ~HB, y = ~IVB, type = 'scatter', mode = 'markers',
                 marker = list(size = 8, line = list(color = 'black',width = 1)),
-                #customdata = I(PitchingDF()[, c(~Pitch, ~SpinRate)]),
-                #hovertemplate = "HB: %{x:.2f} <br>VB: %{y:.2f} <extra>%{customdata}</extra>"
                 text = ~paste(Pitch,
                               '<br>HB:', round(HB, 1),'in',
                               '<br>VB:', round(IVB, 1),'in',
                               '<br>Spin:',round(PitchingDF()$Spin),'RPM',
                               '<br>Ext:', round(PitchingDF()$Extension,2), 'ft'
-                              #'<br>HRA:',round(PitchingDF()$HorzRelAngle, 2),'º',
-                              #'<br>VRA:',round(PitchingDF()$VertRelAngle, 2),'º'
                               ),
                 hoverinfo = 'text'
       )
@@ -610,6 +610,38 @@ function(input, output, session) {
                       traceorder = 'normal')
       )
   })
+  
+  #### . > Pitch Movement Overview ####
+  
+  output$PitchMovementPlotOverview = renderPlotly({
+    
+    fig = plot_ly(PitcherDFOverview(), color = ~Pitch, colors = pcolors) %>% 
+      add_trace(x = ~HB, y = ~IVB, type = 'scatter', mode = 'markers',
+                marker = list(size = 8, line = list(color = 'black',width = 1)),
+                text = ~paste(Pitch,
+                              '<br>HB:', round(HB, 1),'in',
+                              '<br>VB:', round(IVB, 1),'in',
+                              '<br>Spin:',round(PitchingDF()$Spin),'RPM',
+                              '<br>Ext:', round(PitchingDF()$Extension,2), 'ft'
+                ),
+                hoverinfo = 'text'
+      )
+    config(fig, staticPlot = T) %>% 
+      layout(
+        xaxis = list(range = c(-30,30)),
+        yaxis = list(range = c(-30,30)),
+        title = "Pitch Movement",
+        showlegend = F,
+        legend = list(orientation ='h', 
+                      x = 0, 
+                      y = -200, 
+                      xanchor = 'left',
+                      yanchor = 'top',
+                      itemwidth = -1,
+                      traceorder = 'normal')
+      )
+  })
+  
   
   #### Release Angle ####
   output$PitchReleaseAngle = renderPlotly({
@@ -655,7 +687,7 @@ function(input, output, session) {
   
   # Strike Zone Plot ----
   
-  #### . > SZ Main ####
+  #### . > SZ Dashboard ####
   output$StrikeZonePlotMain = renderPlotly({
     
     fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors) %>% 
@@ -719,7 +751,7 @@ function(input, output, session) {
     
   })
   
-  #### . > SZ Sub ####
+  #### . > SZ Tab ####
   output$StrikeZonePlotSub = renderPlotly({
     
     fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors, source = 'SZP') %>% 
@@ -775,11 +807,66 @@ function(input, output, session) {
       )
   })
   
+  #### . > SZ Overview ####
+  output$StrikeZonePlotOverview = renderPlotly({
+    
+    fig = plot_ly(PitcherDFOverview(), color = ~Pitch, colors = pcolors, source = 'SZP') %>% 
+      add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
+                marker = list(size = 8, line = list(color = 'black',width = 1)
+                )
+      )
+    config(fig, staticPlot = T) %>% 
+      layout(
+        xaxis = list(range = c(-3,3), showgrid = T, zeroline = F),
+        yaxis = list(range = c(-0.5,5), showgrid = T, zeroline = F),
+        title = "Strike Zone",
+        showlegend = F,
+        shapes = list(
+          list(
+            type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5, layer = 'below'
+          ),
+          #Draw Plate
+          list(
+            type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.15,y1 = 0.15, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = -0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+          ),
+          #End Draw Plate
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',
+            x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          )
+        )
+      )
+  })
   
   
   #### Release Plot ####
   
-  #### . > Release Plot Main ####
+  #### . > Release Plot Dashboard ####
   output$PitcherReleasePlotMain = renderPlotly({
     
     fig = plot_ly(PitchingDF()) %>% 
@@ -798,11 +885,28 @@ function(input, output, session) {
       ))
   })
   
+  
+  #### . > Release Plot Tab ####
   output$PitcherReleasePlotSub = renderPlotly({
     fig = plot_ly(PitchingDF()) %>% 
       add_trace(x = ~RelSide, y = ~RelHeight, color = ~Pitch, colors = ~pcolors, type = 'scatter', mode = 'markers', 
                 marker = list(size = 8, line = list(color = 'black', width = 1))) 
     config(fig) %>% 
+      layout(
+        xaxis = list(range = c(-5,5)),
+        yaxis = list(range = c(0, 7)),
+        title = "Pitch Release Points",
+        showlegend = F,
+        shapes = list()
+      )
+  })
+  
+  #### . > Release Plot Overview ####
+  output$PitcherReleasePlotOverview = renderPlotly({
+    fig = plot_ly(PitcherDFOverview()) %>% 
+      add_trace(x = ~RelSide, y = ~RelHeight, color = ~Pitch, colors = ~pcolors, type = 'scatter', mode = 'markers', 
+                marker = list(size = 8, line = list(color = 'black', width = 1))) 
+    config(fig, staticPlot = T) %>% 
       layout(
         xaxis = list(range = c(-5,5)),
         yaxis = list(range = c(0, 7)),
@@ -941,12 +1045,13 @@ function(input, output, session) {
   #### Pitcher Name Output ####
   output$PitcherNamePitcherOverview = renderText({input$pitcherPitcherOverview})
   
-  #### Catcher Plots and Info ####
+  #### Catcher Filter ####
   CatchingDF = reactive({
     game %>% filter(CatcherTeam == "MER_BEA") %>% 
       filter(PitchCall %in% c('Ball', 'StrikeCalled')) %>% 
       filter(
-      if (input$catcher != "all") Catcher == input$catcher else TRUE
+      if (input$catcherPositionInfo != "all") Catcher == input$catcherPositionInfo else TRUE,
+      if (input$datePositionInfo != 'all') Date == input$datePositionInfo else TRUE
       )
   })
   
@@ -954,7 +1059,7 @@ function(input, output, session) {
   #### Catcher Strike Zone ####
   output$CatcherStrikeZone = renderPlotly({
     
-    fig = plot_ly(CatchingDF(), color = ~Pitch, colors = pcolors) %>% 
+    fig = plot_ly(CatchingDF(), color = ~PitchCall) %>% 
       add_trace(x = ~ PlateLocSide*-1, y = ~ PlateLocHeight, type = 'scatter', mode = 'markers',
                 marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
                 text = ~paste(
@@ -977,7 +1082,7 @@ function(input, output, session) {
           ),
           #Draw Plate
           list(
-            type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.15,y1 = 0.15, layer = 'below'
+            type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.3,y1 = 0.3, layer = 'below'
           ),
           list(
             type = "line",x0 = -0.708,x1 = -0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
@@ -986,10 +1091,10 @@ function(input, output, session) {
             type = "line",x0 = 0.708,x1 = 0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
           ),
           list(
-            type = "line",x0 = 0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+            type = "line",x0 = 0.708,x1 = 0,y0 = 0.15,y1 = 0, layer = 'below'
           ),
           list(
-            type = "line",x0 = -0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+            type = "line",x0 = -0.708,x1 = 0,y0 = 0.15,y1 = 0, layer = 'below'
           ),
           #End Draw Plate
           list(
@@ -1013,6 +1118,65 @@ function(input, output, session) {
       )
   })
   
-  
+  output$CatcherCatchPosition = renderPlotly({
+    
+    fig = plot_ly(CatchingDF(), color = ~Pitch, colors = pcolors) %>% 
+      add_trace(x = ~ CatchPositionX*-1, y = ~ CatchPositionY, type = 'scatter', mode = 'markers',
+                marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
+                text = ~paste(
+                  CatchingDF()$PitchCall,
+                  "<br>",CatchingDF()$HitType,
+                  "<br>",CatchingDF()$PlayResult
+                ), 
+                hoverinfo = 'text'
+      )
+    fig = fig %>% 
+      config(fig, displayModeBar = F) %>% 
+      layout(
+        xaxis = list(range = c(-3,3), showgrid = T, zeroline = F, title = NA),
+        yaxis = list(range = c(-0.5,5), showgrid = T, zeroline = F, title = NA),
+        title = "Strike Zone",
+        showlegend = F,
+        shapes = list(
+          list(
+            type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5, layer = 'below'
+          ),
+          #Draw Plate
+          list(
+            type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.3,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = -0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0,y0 = 0.15,y1 = 0, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = 0,y0 = 0.15,y1 = 0, layer = 'below'
+          ),
+          #End Draw Plate
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',
+            x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          )
+        )
+      )
+  })
   
 }
