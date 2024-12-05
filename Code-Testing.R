@@ -373,3 +373,7 @@ data.frame(Student = c("Alice", "Bob", "Charlie"),
   condformat() %>%
   condformat2grob()
 
+data$Pitcher[data$PitcherTeam == "MER_BEA"]
+
+data$Pitcher
+

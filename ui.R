@@ -139,32 +139,50 @@ page_navbar(
     )),
 
   # Hitting Page ----
-  nav_menu("Hitting",
-    nav_panel('Hitter Pages'),
-    nav_panel('Hitting Dashboard',
+  nav_menu("Batting",
+    nav_panel('Batting Pages'),
+    nav_panel('Batter Standings'),
+    nav_panel('Batter Dashboard',
       page_sidebar(
         sidebar = sidebar(
           width = 250,
           open = 'open',
           title = 'Filters',
-          selectInput('seasonBatterDashboard', 'Season', c(0)),
+          selectInput('seasonBatterDashboard', 'Season (Not Yet Functional)', c(0)),
           selectInput('batterBatterDashboard', 'Batter', c(0)),
-          selectInput('dateBatterDashboard', 'Date', c(0))
+          selectInput('dateBatterDashboard', 'Date', c(0)),
+          fluidRow(
+            column(3, checkboxGroupInput('ballBatterDashboard', 'Balls', c(0,1,2,3))),
+            column(3, checkboxGroupInput('strikeBatterDashboard', 'Strikes', c(0,1,2))),
+            column(3, checkboxGroupInput('outsBatterDashboard', 'Outs', c(0,1,2))),
+            column(3, checkboxGroupInput('pitcherthrowsBatterDashboard', 'PH', c('L','R')))
+          ),
+          fluidRow(
+            column(6, checkboxGroupInput('pcallBatterDashboard', 'Pitch Call', c(0))),
+            column(6, checkboxGroupInput('hittypeBatterDashboard', 'Hit Type', c('0'))),
+          ),
+          fluidRow(
+            column(4, checkboxGroupInput('pitchBatterDashboard', 'Pitch', c(0))),
+            column(4, checkboxGroupInput('paoutcomeBatterDashboard', 'PA Result', c(0))),
+          )
         ), #### Main Dashboard Page ####
-        htmlOutput('BatterMetricsTable'),
-        htmlOutput('BatterStatsTable')
+      navset_tab(
+        nav_panel("Batter Overview",
+          htmlOutput('BatterMetricsTable'),
+          htmlOutput('BatterStatsTable')
+        ),
+        nav_panel("AB Pitch by Pitch"),
+        nav_panel("Pitch Locations"),
+        nav_panel("Contact Chart"),
+        nav_panel("Spray Chart")
+      )
       )
     )
   ),
   nav_panel("Positional Info",
-            layout_columns(col_widths = 4,
-                selectInput('catcherPositionInfo', 'Catcher', c(0)),
-                selectInput('datePositionInfo', 'Date', c(0))
-                           ),
-            layout_columns(col_widths = 6,
-            plotlyOutput('CatcherStrikeZone', height = '500px'),
-            plotlyOutput('CatcherCatchPosition', height = '500px')
-            )
+            selectInput('testPitcher', 'Test Pitcher', c('A','B','C')),
+            selectInput('testDate', 'Test Date', c('all','1', '2', '3'))
+            
             
             ),
   # Game Reports Page ----

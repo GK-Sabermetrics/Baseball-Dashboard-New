@@ -17,7 +17,7 @@ data = read.csv("Data/Fall Scrimmage Data copy.csv")
 #### Data Manipulation ####
 # Add Pitch Column and Count column 
 game =
-  filter(data, TaggedPitchType != 'Other' & PitcherTeam == "MER_BEA") %>% 
+  filter(data, TaggedPitchType != 'Other') %>% 
   mutate(
     Count = paste(Balls, Strikes, sep = "-"), .after = "Outs",
     Pitch = TaggedPitchType,
@@ -108,10 +108,10 @@ function(input, output, session) {
 #    }, striped = TRUE, bordered = TRUE)
   
   # Filter Data ----  
+  #### . > Pitching ####
   PitchingDF = reactive({
     
     game %>% 
-      filter(PitcherTeam == "MER_BEA") %>% 
       filter(
         if (input$pitcherPitcherDashboard != "all") Pitcher == input$pitcherPitcherDashboard else TRUE,
         if (input$datePitcherDashboard != 'all') Date == input$datePitcherDashboard else TRUE,
@@ -139,8 +139,19 @@ function(input, output, session) {
         )
   })
   
+  #### . > Batting ####
+  BattingDF = reactive({
+    game %>% 
+      filter(
+        if (input$batterBatterDashboard != "all") Batter == input$batterBatterDashboard else TRUE,
+        if (input$dateBatterDashboard != "all") Date == input$dateBatterDashboard else TRUE
+      )
+  })
+  
+  
   # Update Inputs ----
-  updateSelectInput(session, 'pitcherPitcherDashboard', choices = c(unique(game$Pitcher)))
+  #### . > Pitching ####
+  updateSelectInput(session, 'pitcherPitcherDashboard', choices = c(unique(game$Pitcher[game$PitcherTeam == 'MER_BEA'])))
   
   updateSelectInput(session, 'datePitcherDashboard', choices = c("all", unique(game$Date)))
   
@@ -150,45 +161,61 @@ function(input, output, session) {
   
   updateCheckboxGroupInput(session, 'hittypePitcherDashboard', choices = c(HitChoices))
   
-  updateSelectInput(session, 'pitcherPitcherOverview', choices = c(unique(game$Pitcher)))
+  updateSelectInput(session, 'pitcherPitcherOverview', choices = c(unique(game$Pitcher[game$PitcherTeam == 'MER_BEA'])))
+  
+  updateSelectInput(session, 'datePitcherOverview', choices = c('all', unique(game$Date)))
   
   updateCheckboxGroupInput(session, 'paoutcomePitcherDashboard', choices = c(PAChoices))
   
-  updateSelectInput(session, 'catcherPositionInfo', choices = c(game$Catcher))
+  #### . > Batting ####
+  updateSelectInput(session, 'batterBatterDashboard', choices = c(unique(game$Batter[game$BatterTeam == 'MER_BEA'])))
   
-  updateSelectInput(session, 'datePositionInfo', choices = c('all',game$Date))
+  updateSelectInput(session, 'dateBatterDashboard', choices = c('all', unique(game$Date)))
+  
   
   # Observers for Inputs ----
+  #### . > Pitching ####
+  # Display dates in date filter based on selected pitcher
   observeEvent(input$pitcherPitcherDashboard, {
     choices = if (input$pitcherPitcherDashboard == "all") {
       c("all", unique(game$Date))
     } else {
-      c("all", unique(game$Date[data$Pitcher == input$pitcherPitcherDashboard]))
+      c("all", unique(game$Date[game$Pitcher == input$pitcherPitcherDashboard]))
     }
     updateSelectInput(session, "datePitcherDashboard", choices = choices, selected = input$datePitcherDashboard) 
   })
   
+  # Observe if pitcher name changes only display dates he threw on the pitcher overview page
+  observeEvent(input$pitcherPitcherOverview, {
+    choices = if (input$pitcherPitcherOverview == "all") {
+      c("all", unique(game$Date))
+    } else {
+      c("all", unique(game$Date[game$Pitcher == input$pitcherPitcherOverview]))
+    }
+    updateSelectInput(session, "datePitcherOverview", choices = choices, selected = input$datePitcherOverview) 
+  })
+  
+  # Change pitches in filter based on selected pitcher arsenal
   observeEvent(input$pitcherPitcherDashboard,{
     updateCheckboxGroupInput(session, 'pitchPitcherDashboard', choices = PitchChoices[PitchChoices %in% unique(PitcherDF()$Pitch)])
   })
   
+  #### . > Batting ####
+  observeEvent(input$batterBatterDashboard, {
+    choices = if (input$batterBatterDashboard == "all") {
+      c("all", unique(game$Date))
+    } else {
+      c("all", unique(game$Date[game$Batter == input$batterBatterDashboard]))
+    }
+    updateSelectInput(session, "dateBatterDashboard", choices = choices, selected = input$dateBatterDashboard) 
+  })
+  
+  
   # Pitcher Standings ----
   output$PitcherStandingsTable = renderUI({
-    
-    WHIP.color.picker <- function(z){
-      if(is.na(z)){return(0)}
-      else if(z <= 1){return(1)}
-      else if(z > 1 & z <= 1.10){return(2)}
-      else if(z > 1.10 & z <= 1.20){return(3)}
-      else if(z > 1.20 & z <= 1.30){return(4)}
-      else if(z > 1.30 & z <= 1.40){return(5)}
-      else if(z > 1.40 & z <= 1.50){return(6)}
-      else if(z > 1.50 & z <= 1.60){return(7)}
-      else {return(8)}
-    }
-    
     table = 
       game %>% 
+      filter(PitcherTeam == 'MER_BEA') %>% 
       group_by(Pitcher) %>% 
       summarise(
         '#' = n(),
@@ -230,30 +257,19 @@ function(input, output, session) {
     # Apply conditional formatting
     condformat(table) %>% 
       rule_fill_gradient2(BA, low = 'green2', mid = 'white', high = 'red2', midpoint = .270) %>% 
-      rule_fill_gradient2(`K/9`, low = 'green2', mid = 'white', high = 'red2') %>% 
+      rule_fill_gradient2(`K/9`, low = 'red2', mid = 'white', high = 'green2') %>% 
       rule_fill_gradient2(OBP, low = 'green2', mid = 'white', high = 'red2') %>% 
       rule_fill_gradient2(SLG, low = 'green2', mid = 'white', high = 'red2') %>% 
       rule_fill_gradient2(OPS, low = 'green2', mid = 'white', high = 'red2') %>% 
+      rule_fill_gradient2(WHIP, low = 'green2', mid = 'white', high = 'red2', midpoint = 1.4) %>% 
       rule_fill_gradient2(wOBA, low = 'green2', mid = 'white' , high = 'red2', midpoint = .320) %>%
       rule_text_bold(wOBA, OBP > wOBA) %>% 
-      rule_fill_discrete(WHIP, expression = sapply(WHIP,WHIP.color.picker),
-        colours=c("0" = "white", 
-                  "1" = "limegreen", 
-                  "2" =  "green", 
-                  "3" = "lawngreen",
-                  "4" = 'lightgreen',
-                  "5" = 'yellow',
-                  "6" = 'orange',
-                  "7" = 'darkorange',
-                  "8" = 'red'
-                  )) %>% 
       theme_htmlTable(rnames = FALSE) %>% 
       condformat2html() %>% HTML()
   })
   
   #### Pitcher Individual Stats Table ####
   output$PitcherIndividualStats = renderUI({
-    
     tableA = PitcherDFOverview() %>% 
       summarise(
         'Pitches' = n(),
@@ -617,15 +633,7 @@ function(input, output, session) {
     
     fig = plot_ly(PitcherDFOverview(), color = ~Pitch, colors = pcolors) %>% 
       add_trace(x = ~HB, y = ~IVB, type = 'scatter', mode = 'markers',
-                marker = list(size = 8, line = list(color = 'black',width = 1)),
-                text = ~paste(Pitch,
-                              '<br>HB:', round(HB, 1),'in',
-                              '<br>VB:', round(IVB, 1),'in',
-                              '<br>Spin:',round(PitchingDF()$Spin),'RPM',
-                              '<br>Ext:', round(PitchingDF()$Extension,2), 'ft'
-                ),
-                hoverinfo = 'text'
-      )
+                marker = list(size = 8, line = list(color = 'black',width = 1)))
     config(fig, staticPlot = T) %>% 
       layout(
         xaxis = list(range = c(-30,30)),
@@ -989,9 +997,9 @@ function(input, output, session) {
   #### Batter Metrics Table ####
   output$BatterMetricsTable = renderUI({
     
-    tableA = game %>% 
+    tableA = BattingDF() %>% 
       filter(BatterTeam == 'MER_BEA') %>% 
-      group_by(BatterTeam) %>% 
+      group_by(PitcherThrows) %>% 
       summarise(
         P = n(),
         'Max EV' = max(ExitSpeed, na.rm = T) %>% round(),
@@ -1001,7 +1009,7 @@ function(input, output, session) {
         'Avg Hit Spin' = mean(HitSpinRate, na.rm = T) %>% round(),
         "Avg Distance" = mean(Distance, na.rm = T) %>% round(),
         "Avg Hang Time" = mean(HangTime, na.rm = T) %>% round(1)
-      ) %>% .[, -c(1)]
+      ) 
     tableA %>% 
       kable(format = 'html', align = 'c') %>% kable_styling(font_size = 15) %>% 
       kable_styling(bootstrap_options = 'bordered') %>% 
@@ -1009,17 +1017,15 @@ function(input, output, session) {
     
   })
   
-  
-  
   #### Batter Stats Table ####
   output$BatterStatsTable = renderUI({
     
-    tableA = game %>% 
+    tableA = BattingDF() %>% 
       filter(BatterTeam == "MER_BEA") %>% 
-      group_by(BatterTeam) %>% 
+      group_by(PitcherThrows) %>% 
       summarise(
         P = n(),
-        BF = length(which(Count == '0-0')),
+        PA = length(which(Count == '0-0')),
         H = length(which(PitchCall == 'InPlay' & !PlayResult %in% 
                            c('Out', 'Sacrifice', 'FieldersChoice', 'Error', 'Undefined'))),
         '2B' = length(which(PlayResult == 'Double')),
@@ -1032,8 +1038,8 @@ function(input, output, session) {
         H = sum(PlayResult %in% c('Single', 'Double', 'Triple', 'HomeRun')),
         XBH = sum(PlayResult %in% c('Double', 'Triple', 'HomeRun')),
         R = sum(RunsScored),
-        BAA = round(H / (BF - BB - HBP - sum(PlayResult =='Sacrifice')),3)
-      )%>%.[, -c(1)]
+        BAA = sprintf(H/(PA-BB-HBP-sum(PlayResult == 'Sacrifice')), fmt = '%#.3f')
+      )
     
    tableA %>% 
      kable(format = 'html', align = 'c') %>% kable_styling(font_size = 15) %>% 
@@ -1044,139 +1050,7 @@ function(input, output, session) {
   
   #### Pitcher Name Output ####
   output$PitcherNamePitcherOverview = renderText({input$pitcherPitcherOverview})
+   
+
   
-  #### Catcher Filter ####
-  CatchingDF = reactive({
-    game %>% filter(CatcherTeam == "MER_BEA") %>% 
-      filter(PitchCall %in% c('Ball', 'StrikeCalled')) %>% 
-      filter(
-      if (input$catcherPositionInfo != "all") Catcher == input$catcherPositionInfo else TRUE,
-      if (input$datePositionInfo != 'all') Date == input$datePositionInfo else TRUE
-      )
-  })
-  
-  
-  #### Catcher Strike Zone ####
-  output$CatcherStrikeZone = renderPlotly({
-    
-    fig = plot_ly(CatchingDF(), color = ~PitchCall) %>% 
-      add_trace(x = ~ PlateLocSide*-1, y = ~ PlateLocHeight, type = 'scatter', mode = 'markers',
-                marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
-                text = ~paste(
-                  CatchingDF()$PitchCall,
-                  "<br>",CatchingDF()$HitType,
-                  "<br>",CatchingDF()$PlayResult
-                ), 
-                hoverinfo = 'text'
-      )
-    fig = fig %>% 
-      config(fig, displayModeBar = F) %>% 
-      layout(
-        xaxis = list(range = c(-3,3), showgrid = T, zeroline = F, title = NA),
-        yaxis = list(range = c(-0.5,5), showgrid = T, zeroline = F, title = NA),
-        title = "Strike Zone",
-        showlegend = F,
-        shapes = list(
-          list(
-            type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5, layer = 'below'
-          ),
-          #Draw Plate
-          list(
-            type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.3,y1 = 0.3, layer = 'below'
-          ),
-          list(
-            type = "line",x0 = -0.708,x1 = -0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
-          ),
-          list(
-            type = "line",x0 = 0.708,x1 = 0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
-          ),
-          list(
-            type = "line",x0 = 0.708,x1 = 0,y0 = 0.15,y1 = 0, layer = 'below'
-          ),
-          list(
-            type = "line",x0 = -0.708,x1 = 0,y0 = 0.15,y1 = 0, layer = 'below'
-          ),
-          #End Draw Plate
-          list(
-            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'below',
-            line = list(dash = 'dash', color = 'grey', width = 3)
-          ),
-          list(
-            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'below',
-            line = list(dash = 'dash', color = 'grey', width = 3)
-          ),
-          list(
-            type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
-            line = list(dash = 'dash', color = 'grey', width = 3)
-          ),
-          list(
-            type = 'line',
-            x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
-            line = list(dash = 'dash', color = 'grey', width = 3)
-          )
-        )
-      )
-  })
-  
-  output$CatcherCatchPosition = renderPlotly({
-    
-    fig = plot_ly(CatchingDF(), color = ~Pitch, colors = pcolors) %>% 
-      add_trace(x = ~ CatchPositionX*-1, y = ~ CatchPositionY, type = 'scatter', mode = 'markers',
-                marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
-                text = ~paste(
-                  CatchingDF()$PitchCall,
-                  "<br>",CatchingDF()$HitType,
-                  "<br>",CatchingDF()$PlayResult
-                ), 
-                hoverinfo = 'text'
-      )
-    fig = fig %>% 
-      config(fig, displayModeBar = F) %>% 
-      layout(
-        xaxis = list(range = c(-3,3), showgrid = T, zeroline = F, title = NA),
-        yaxis = list(range = c(-0.5,5), showgrid = T, zeroline = F, title = NA),
-        title = "Strike Zone",
-        showlegend = F,
-        shapes = list(
-          list(
-            type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5, layer = 'below'
-          ),
-          #Draw Plate
-          list(
-            type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.3,y1 = 0.3, layer = 'below'
-          ),
-          list(
-            type = "line",x0 = -0.708,x1 = -0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
-          ),
-          list(
-            type = "line",x0 = 0.708,x1 = 0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
-          ),
-          list(
-            type = "line",x0 = 0.708,x1 = 0,y0 = 0.15,y1 = 0, layer = 'below'
-          ),
-          list(
-            type = "line",x0 = -0.708,x1 = 0,y0 = 0.15,y1 = 0, layer = 'below'
-          ),
-          #End Draw Plate
-          list(
-            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'below',
-            line = list(dash = 'dash', color = 'grey', width = 3)
-          ),
-          list(
-            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'below',
-            line = list(dash = 'dash', color = 'grey', width = 3)
-          ),
-          list(
-            type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
-            line = list(dash = 'dash', color = 'grey', width = 3)
-          ),
-          list(
-            type = 'line',
-            x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
-            line = list(dash = 'dash', color = 'grey', width = 3)
-          )
-        )
-      )
-  })
-  
-}
+  }
