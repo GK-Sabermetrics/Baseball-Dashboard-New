@@ -1050,6 +1050,68 @@ function(input, output, session) {
   
   #### Pitcher Name Output ####
   output$PitcherNamePitcherOverview = renderText({input$pitcherPitcherOverview})
+  
+  
+  #### Batter Strikezone Plot ####
+  output$BatterStrikeZonePlot = renderPlotly({
+    fig = plot_ly(BattingDF(), color = ~Pitch, colors = pcolors) %>% 
+      add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
+                marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
+                text = ~paste(
+                  PitchingDF()$PitchCall,
+                  "<br>",BattingDF()$HitType,
+                  "<br>",BattingDF()$PlayResult
+                ), 
+                hoverinfo = 'text'
+      )
+    fig = fig %>% 
+      config(fig, displayModeBar = F) %>% 
+      layout(
+        xaxis = list(range = c(-3,3), showgrid = T, zeroline = F, title = NA),
+        yaxis = list(range = c(-0.5,5), showgrid = T, zeroline = F, title = NA),
+        title = "Strike Zone",
+        showlegend = F,
+        shapes = list(
+          list(
+            type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5, layer = 'below'
+          ),
+          #Draw Plate
+          list(
+            type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.15,y1 = 0.15, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = -0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = 0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+          ),
+          list(
+            type = "line",x0 = -0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+          ),
+          #End Draw Plate
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          ),
+          list(
+            type = 'line',
+            x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+            line = list(dash = 'dash', color = 'grey', width = 3)
+          )
+        )
+      )
+  })
    
 
   

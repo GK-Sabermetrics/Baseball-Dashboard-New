@@ -140,7 +140,7 @@ page_navbar(
 
   # Hitting Page ----
   nav_menu("Batting",
-    nav_panel('Batting Pages'),
+    nav_panel('Batter Overview'),
     nav_panel('Batter Standings'),
     nav_panel('Batter Dashboard',
       page_sidebar(
@@ -165,11 +165,15 @@ page_navbar(
             column(4, checkboxGroupInput('pitchBatterDashboard', 'Pitch', c(0))),
             column(4, checkboxGroupInput('paoutcomeBatterDashboard', 'PA Result', c(0))),
           )
-        ), #### Main Dashboard Page ####
+        ), #### Main Batter Dashboard Page ####
       navset_tab(
         nav_panel("Batter Overview",
           htmlOutput('BatterMetricsTable'),
-          htmlOutput('BatterStatsTable')
+          htmlOutput('BatterStatsTable'),
+          layout_columns(col_widths = 4, 
+                         plotlyOutput('BatterStrikeZonePlot')
+                         
+          ),
         ),
         nav_panel("AB Pitch by Pitch"),
         nav_panel("Pitch Locations"),
