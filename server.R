@@ -602,14 +602,15 @@ function(input, output, session) {
     
     fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors, source = 'PMB') %>% 
       add_trace(x = ~HB, y = ~IVB, type = 'scatter', mode = 'markers',
-                marker = list(size = 8, line = list(color = 'black',width = 1)),
-                text = ~paste(Pitch,
-                              '<br>HB:', round(HB, 1),'in',
-                              '<br>VB:', round(IVB, 1),'in',
-                              '<br>Spin:',round(PitchingDF()$Spin),'RPM',
-                              '<br>Ext:', round(PitchingDF()$Extension,2), 'ft'
-                              ),
-                hoverinfo = 'text'
+                marker = list(size = 8, line = list(color = 'black',width = 1)), # ADD COMMA BACK HERE
+                #text = ~paste(Pitch,
+                #              '<br>HB:', round(HB, 1),'in',
+                #              '<br>VB:', round(IVB, 1),'in',
+                #              '<br>Spin:',round(PitchingDF()$Spin),'RPM',
+                #              '<br>Ext:', round(PitchingDF()$Extension,2), 'ft'
+                #              ),
+                #hoverinfo = 'text'
+                hovertemplate = "HB:%{x:.1f}<br>VB:%{y:.1f}"
       )
     config(fig, displaylogo = F, modeBarButtonsToRemove = c("zoomin2d", 'zoomOut2d', 'lasso2d', 'autoscale2d', 'pan2d')) %>% 
       layout(
@@ -701,12 +702,15 @@ function(input, output, session) {
     fig = plot_ly(PitchingDF(), color = ~Pitch, colors = pcolors) %>% 
       add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
                 marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
-                text = ~paste(
-                  PitchingDF()$PitchCall,
-                  "<br>",PitchingDF()$HitType,
-                  "<br>",PitchingDF()$PlayResult
-                              ), 
-                hoverinfo = 'text'
+                #text = ~paste(
+                #  PitchingDF()$PitchCall,
+                #  "<br>",PitchingDF()$HitType,
+                #  "<br>",PitchingDF()$PlayResult
+                #              ), 
+                #hoverinfo = 'text'
+                text = ~PitchCall,
+                customdata = paste0(PitchingDF()$HitType, "\n", PitchingDF()$PlayResult),
+                hovertemplate = "%{text}<extra>%{customdata}</extra>"
                 )
     fig = fig %>% 
     config(fig, displayModeBar = F) %>% 
@@ -1055,15 +1059,8 @@ function(input, output, session) {
   #### Batter Strikezone Plot ####
   output$BatterStrikeZonePlot = renderPlotly({
     fig = plot_ly(BattingDF(), color = ~Pitch, colors = pcolors) %>% 
-      add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
-                marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
-                text = ~paste(
-                  PitchingDF()$PitchCall,
-                  "<br>",BattingDF()$HitType,
-                  "<br>",BattingDF()$PlayResult
-                ), 
-                hoverinfo = 'text'
-      )
+      add_trace(x = ~-PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
+                marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none')
     fig = fig %>% 
       config(fig, displayModeBar = F) %>% 
       layout(

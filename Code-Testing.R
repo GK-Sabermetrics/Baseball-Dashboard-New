@@ -2,6 +2,7 @@
 library(tidyverse)
 library(scales)
 library(htmlTable)
+library(kableExtra)
 
 #### Pre Load Data ####
 data = read.csv("Data/Fall Scrimmage Data copy.csv")
@@ -376,4 +377,172 @@ data.frame(Student = c("Alice", "Bob", "Charlie"),
 data$Pitcher[data$PitcherTeam == "MER_BEA"]
 
 data$Pitcher
+
+
+
+swingDec = data.frame(`Swing Decision` = c('Strike','Ball'),
+                      Swing = c('Good','Bad'),
+                      Take = c('Bad','Good'))
+
+swingDec %>% kbl(booktabs = T, align = 'c', linesep = "") %>% 
+  kable_styling(position = 'center') %>% 
+  row_spec(0, background = 'lightgray', 
+           extra_css = "border-bottom: 2px solid black; border-top: 2px solid black") %>% 
+  column_spec(2, border_left = '2px solid black', 
+              background = case_when(swingDec$Swing == 'Good' ~ '#C6EFCD',
+                                        swingDec$Swing == 'Bad' ~ '#FEC7CD')) %>% 
+  column_spec(3, border_left = '2px solid black',
+              background = case_when(swingDec$Swing == 'Good' ~ '#FEc7CD',
+                                        swingDec$Swing == 'Bad' ~ '#c6efcd')) %>% 
+  column_spec(ncol(swingDec), border_right = '2px solid black')
+
+Swing = data %>% 
+  mutate(
+    InZone = ifelse(between(PlateLocHeight, 1.3795,3.6205) & between(PlateLocSide, -.828, .828), 1, 0),
+    OutZone = ifelse(InZone == 1, 0,1), 
+    AutoPitchCall = ifelse(between(PlateLocHeight, 1.3795,3.6205) & between(PlateLocSide, -.828, .828), 'Strike', 'Ball'),
+    SwingDec = ifelse(PitchCall %in% c('StrikeSwinging', 'InPlay', 'FoulBallNotFieldable'),"Swing","Take"),
+    Count = paste(Balls, Strikes, sep = "-"),
+    .after = PitchCall,
+    filter_1 = ifelse(Count == "0-0", 'First Pitch',
+                      ifelse(Strikes == 2, '2 Strikes',
+                             ifelse(Count %in% c('1-0','2-0','3-0','2-1','3-1'), 'Behind',
+                                    ifelse(Count %in% c('0-1','0-2', '1-2' ), 'Ahead', NA
+                                    ))  ))
+  )
+
+
+
+table(batter$AutoPitchCall, batter$SwingDec)
+
+pcolors = c('#d22d49','#00d1ed')
+pcolors = setNames(pcolors, c('Strike', 'Ball'))
+
+ggplot(data = batter, 
+       aes(x = -PlateLocSide, y = PlateLocHeight, fill = AutoPitchCall)) +
+  xlim(-2,2) + ylim(0,4.5) + labs(title = paste("Missed Calls")) +
+  geom_rect(aes(xmin = -0.708, xmax = 0.708, ymin = 1.5, ymax = 3.5), alpha = 0, size = .75, color = "black") +
+  geom_rect(aes(xmin = -0.8288, xmax = 0.8288, ymin = 1.379, ymax = 3.6208), alpha = 0, size = .75, color = "red") +
+  # Home Plate Outline Below
+  geom_segment(aes(x = -0.708, y = 0.3, xend = 0.708, yend = 0.3), size = 1, color = "black") +
+  geom_segment(aes(x = -0.708, y = 0.3, xend = -0.708, yend = 0.15), size = 1, color = "black") +
+  geom_segment(aes(x = -0.708, y = 0.15, xend = 0, yend = 0), size = 1, color = "black") +
+  geom_segment(aes(x = 0, y = 0.0, xend = 0.708, yend = 0.15), size = 1, color = "black") +
+  geom_segment(aes(x = 0.708, y = 0.3, xend = 0.708, yend = 0.15), size = 1, color = "black") +
+  geom_point(size = 4, alpha = .75, pch = 21) +
+  scale_fill_manual(values = pcolors) +
+  theme_bw() + 
+  theme(plot.title = element_text(size = 11, face = "bold", hjust = 0.5), axis.title = element_blank()) +
+  theme(legend.position = "none")  +
+  theme(aspect.ratio = 1)
+
+summary_table = 
+  Swing %>% 
+  filter(Batter == "Dalley, Ty") %>% 
+  filter(!is.na(filter_1)) %>% 
+  group_by(Outs,filter_1,AutoPitchCall) %>% 
+  summarise(
+    Swing = sum(SwingDec == "Swing"),
+    Take = sum(SwingDec == "Take"),
+    .groups = 'drop'
+      )
+
+summary_table %>% arrange(Outs, AutoPitchCall, Count) %>% 
+  kable('html', col.names = c('PC','O','Count', 'Swing','Take'), align = 'c') %>% kable_styling() %>% 
+  pack_rows("Ball", 1,4) %>% 
+  group_rows("Ball", 5,8)
+
+summary_table %>% arrange(Outs, filter_1) %>% 
+  kable('html', col.names = c('Outs', 'Situation', "Pitch Call", 'Swing','Take'), align = 'c') %>% kable_styling() %>% 
+  collapse_rows(columns = 1:2)
+
+table(batter$AutoPitchCall, batter$SwingDec, batter$Count)
+
+Swing %>% 
+  filter(Batter == "Dalley, Ty") %>% 
+  filter(!is.na(AutoPitchCall)) %>% 
+  group_by(AutoPitchCall) %>%
+  summarise(
+    Swing = sum(SwingDec == 'Swing'),
+    Take = sum(SwingDec == 'Take'),
+      )
+
+
+Swing = as.data.table(Swing)
+
+Swing[Batter == 'Dalley, Ty', 
+      .(Swing = sum(SwingDec == 'Swing'), 
+        Take = sum(SwingDec == 'Take'),
+        CSD = if (AutoPitchCall == 'Ball') sum(SwingDec == 'Take')/.N else sum(SwingDec == 'Swing')/.N
+          ), 
+      by = .(AutoPitchCall)] %>% kable() %>% kable_styling(full_width = F)
+
+
+dtatest = head(data,5)
+
+plot_ly(dtatest) %>% 
+  add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, color = ~TaggedPitchType, type = 'scatter', mode = 'markers',
+            customdata = paste0(dtatest$SpinRate, "\n", dtatest$Inning), hovertemplate = "(%{x:.2f}),(%{y:.2f}), (%{customdata}) <extra>(%{customdata})</extra>")
+
+plot_ly(dtatest) %>% 
+  add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, color = ~TaggedPitchType, 
+            type = 'scatter', mode = 'markers', text = ~Outs,
+            customdata = paste0(dtatest$SpinRate, "\n", dtatest$Inning), 
+            hovertemplate = "(%{x:.2f}),(%{y:.2f}), %{text}<extra>(%{customdata})</extra>")
+
+
+testTable = 
+game %>% 
+  filter(PitcherTeam == 'MER_BEA') %>% 
+  group_by(Pitcher) %>% 
+  summarise(
+    '#' = n(),
+    'IPb' = ((sum(OutsOnPlay)+length(which(PAOutcome == 'Strikeout')))/3),
+    'IP' = ifelse(IPb %% 1 == 0, IPb + 0.0, 
+                  ifelse(between(IPb %% 1, .0, .34), IPb - .2333333, IPb -.4666666)) %>% as.numeric(),
+    'H' = length(which(PlayResult %in% c('Single', 'Double', 'Triple', 'HomeRun'))),
+    '1B' = length(which(PlayResult == 'Single')), #5
+    '2B' = length(which(PlayResult == 'Double')),
+    '3B' = length(which(PlayResult == 'Triple')),
+    'HR' = length(which(PlayResult == 'HomeRun')),
+    'R' = sum(RunsScored),
+    'FC' = length(which(PlayResult == 'FieldersChoice')), #10
+    'SO' = length(which(PAOutcome == 'Strikeout')),
+    'E' = length(which(PlayResult == 'Error')),
+    'O' = length(which(PlayResult == 'Out')),
+    'BB' = length(which(PAOutcome == 'Walk')),
+    'HBP' = length(which(PitchCall == 'HitByPitch')), #15
+    'SF' = length(which(PlayResult == 'Sacrifice')),
+    'TB' = (`1B` + `2B`*2 + `3B`*3 + `HR`*4),
+    'PA' = length(which(Count == '0-0')),
+    'AB' = FC + H + E + O + SO,
+    'BAA' = sprintf((H/AB), fmt = '%#.3f') %>% as.numeric(), #20
+    'OBP' = sprintf((H+BB+HBP)/(AB+BB+HBP+SF), fmt = '%#.3f') %>% as.numeric(),
+    'SLG' = sprintf(TB/AB, fmt = '%#.3f') %>% as.numeric(),
+    'OPS' = sprintf(OBP+SLG, fmt = '%#.3f') %>% as.numeric(),
+    'wOBA' = (((0.69*`BB`)+(0.72*`HBP`)+(0.89*`1B`)+(1.27*`2B`)+(1.62*`3B`)+(2.10*HR))/(AB+BB+SF+HBP)) %>% 
+      round(digits = 3),
+    'K/9' = ((9*SO)/IP) %>% round(2), #25,
+    'WHIP' = ((H+BB)/IP) %>% round(2)
+  ) %>% .[, c(1,2,4,20,5,7,8,9,10,12,15,16,21:27)] %>% .[-c(11,22),]
+
+
+testTable
+
+library(RColorBrewer)
+
+kbl(testTable, align = 'l') %>% 
+  kable_styling(bootstrap_options = c("bordered", 'striped'), full_width = F) %>% 
+  column_spec(13, color = 'white', background = spec_color(testTable$BAA, palette = colors)) %>% 
+  column_spec(14, color = 'white', background = spec_color(testTable$OBP, palette = colors, scale_from = c(.25,.6)))
+
+colfunc = colorRampPalette(c("green3", 'gold2', "red2"))
+
+n_color = nrow(testTable)
+
+colors = colfunc(5)
+
+display.brewer.pal(n = 5, name = 'RdYlGn')
+
+colors = brewer.pal(n = 5, name = 'RdYlGn')
 
